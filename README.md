@@ -72,3 +72,7 @@ Starts a headless Rider with the plugin (Rider's integration test framework), op
 | `src/test` | Integration tests and the sample solution |
 
 Design decisions and findings: [DESIGN.md](DESIGN.md).
+
+## License
+
+[MIT](LICENSE)

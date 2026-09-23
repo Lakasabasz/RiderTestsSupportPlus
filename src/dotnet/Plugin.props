@@ -13,7 +13,7 @@
     <PackageTags>resharper rider plugin unit-testing nunit runsettings vstest</PackageTags>
 
     <PackageProjectUrl>https://eu.buddy.works/lakasabasz/ridertestssupportplus</PackageProjectUrl>
-    <PackageLicenseUrl></PackageLicenseUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIconUrl></PackageIconUrl>
   </PropertyGroup>
 
