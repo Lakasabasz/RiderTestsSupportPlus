@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Lists the tests an NUnit <Where> filter selects, using the NUnit engine that ships with the test project's adapter.
+    Started by the plugin with "dotnet exec" and the test project's runtimeconfig.json and deps.json (see NUnitWhereListing.cs).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <!-- Shipped inside the plugin, not as a package of its own -->
+    <IsPackable>false</IsPackable>
+    <Nullable>disable</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Compile only: at run time the engine is loaded from the test project's output, matching its adapter -->
+    <PackageReference Include="NUnit.Engine" Version="3.18.1" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+</Project>

@@ -13,11 +13,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Protocol model exists only in Rider -->
+    <Compile Remove="*.Generated.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="..\..\..\dependencies.json" PackagePath="" Pack="true" Visible="false" />
     <Content Include="bin\$(AssemblyName)\$(Configuration)\$(AssemblyName).dll" PackagePath="dotFiles" Pack="true" Visible="false" />
     <Content Include="bin\$(AssemblyName)\$(Configuration)\$(AssemblyName).pdb" PackagePath="dotFiles" Pack="true" Visible="false" />
 
-    <!-- TODO: add additional assemblies -->
+    <Content Include="..\..\tools\RiderTestsSupportPlus.NUnitLister\bin\$(Configuration)\RiderTestsSupportPlus.NUnitLister.dll" PackagePath="dotFiles" Pack="true" Visible="false" />
   </ItemGroup>
 
 </Project>

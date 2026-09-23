@@ -2,6 +2,8 @@ import com.jetbrains.plugin.structure.base.utils.isFile
 import groovy.ant.FileNameFinder
 import org.apache.tools.ant.taskdefs.condition.Os
 import org.jetbrains.intellij.platform.gradle.Constants
+import org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 
 plugins {
     id("java")
@@ -44,6 +46,9 @@ sourceSets {
         java.srcDir("src/rider/main/java")
         kotlin.srcDir("src/rider/main/kotlin")
         resources.srcDir("src/rider/main/resources")
+    }
+    test {
+        kotlin.srcDir("src/test/kotlin")
     }
 }
 
@@ -136,9 +141,36 @@ dependencies {
         }
         jetbrainsRuntime()
 
-        // TODO: add plugins
-        // bundledPlugin("uml")
-        // bundledPlugin("com.jetbrains.ChooseRuntime:1.0.9")
+        // Base classes of the Unit Tests window actions
+        bundledModule("intellij.rider")
+        bundledModule("intellij.rider.rdclient.dotnet")
+        bundledModule("intellij.rd.client")
+
+        // Rider integration test framework (headless Rider with backend and a real solution)
+        bundledLibrary(provider {
+            project.intellijPlatform.platformPath.resolve("lib/testFramework.jar").toString()
+        })
+    }
+}
+
+dependencies {
+    testImplementation(platform("org.junit:junit-bom:5.13.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    // The Rider test framework also references JUnit 4 rules
+    testImplementation("junit:junit:4.13.2")
+    testImplementation(kotlin("test"))
+}
+
+tasks.test {
+    // The tests exercise the backend assembly in the sandbox, which Gradle does not track as a test input
+    outputs.upToDateWhen { false }
+    // Ignore IJ Platform JUnit5 framework set up and tear down
+    systemProperty("intellij.build.test.ignoreFirstAndLastTests", "true")
+    useJUnitPlatform()
+    testLogging {
+        showStandardStreams = true
+        exceptionFormat = TestExceptionFormat.FULL
     }
 }
 
@@ -157,13 +189,16 @@ tasks.patchPluginXml {
     }.take(1).joinToString())
 }
 
-tasks.prepareSandbox {
+// Both runIde and test sandboxes need the backend assembly
+tasks.withType<PrepareSandboxTask>().configureEach {
     dependsOn(compileDotNet)
 
     val outputFolder = "${rootDir}/src/dotnet/${DotnetPluginId}/bin/${DotnetPluginId}.Rider/${BuildConfiguration}"
     val dllFiles = listOf(
             "$outputFolder/${DotnetPluginId}.dll",
             "$outputFolder/${DotnetPluginId}.pdb",
+            // Lists tests selected by <NUnit><Where> (runs next to the backend assembly, see NUnitWhereListing.cs)
+            "${rootDir}/src/tools/RiderTestsSupportPlus.NUnitLister/bin/${BuildConfiguration}/RiderTestsSupportPlus.NUnitLister.dll",
 
             // TODO: add additional assemblies
     )

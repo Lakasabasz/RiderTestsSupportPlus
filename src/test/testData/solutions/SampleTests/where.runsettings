@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <!-- An actual `dotnet vstest` run with this file executes only Method(1) and Simple: in NUnit the third
+       condition names a method of a parametrized fixture and selects nothing. -->
+  <NUnit>
+    <Where>test == 'Sample.Ns.ParamFixture("A").Method(1)' or test == 'Sample.Ns.Plain.Simple' or test == 'Sample.Ns.ParamFixture("b.c").Method'</Where>
+  </NUnit>
+</RunSettings>

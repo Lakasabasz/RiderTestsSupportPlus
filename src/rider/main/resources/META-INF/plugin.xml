@@ -1,15 +1,54 @@
 <idea-plugin require-restart="true">
   <id>com.jetbrains.rider.plugins.ridertestssupportplus</id>
-  <name>RiderTestsSupportPlus</name>
+  <name>Rider Tests Support Plus</name>
   <version>_PLACEHOLDER_</version>
-  <vendor url="https://project-url">Author</vendor>
+  <vendor email="lakasabasz@gmail.com" url="https://eu.buddy.works/lakasabasz/ridertestssupportplus">Łukasz Mastalerz</vendor>
   <idea-version since-build="_PLACEHOLDER_" until-build="_PLACEHOLDER_" />
+  <dependencies>
+    <!-- RiderUnitTestAnActionBase and its base classes (Unit Tests window actions) -->
+    <module name="intellij.rider" />
+    <module name="intellij.rider.rdclient.dotnet" />
+    <module name="intellij.rd.client" />
+  </dependencies>
   <depends>com.intellij.modules.rider</depends>
 
   <description>
 <![CDATA[
-<p>Sample description</p>
+<p>Adds to the Unit Tests window what the built-in one lacks. Everything else in the window works as before.</p>
+<ul>
+  <li><b>Save and load test sessions</b> (<code>.rtsession</code>), including parametrized tests such as
+      <code>TestClass(A).TestName(X)</code>. Tests are resolved by name after loading, so a session survives
+      a changed project GUID or target framework. Missing tests trigger a rescan, then fall back to their parent,
+      and anything unresolved is reported.</li>
+  <li><b>Import a session from <code>.runsettings</code></b>: <code>RunConfiguration/TestCaseFilter</code> is evaluated
+      by <code>dotnet vstest</code>, <code>NUnit/Where</code> by the NUnit engine, so the session holds exactly
+      the tests <code>dotnet vstest</code> would run.</li>
+</ul>
+<p>The actions are in the session's <i>Export/Import</i> menu. Supported test framework: NUnit 3/4.</p>
 ]]>
   </description>
+
+
+  <actions>
+    <group id="RiderTestsSupportPlus.SessionActions">
+      <separator />
+      <action id="RiderTestsSupportPlus.Frontend.SaveSession"
+              class="com.jetbrains.rider.plugins.ridertestssupportplus.SaveSessionAction"
+              text="Save Session (Tests Support Plus)…"
+              description="Save the tests of this session, including parametrized ones, to a .rtsession file"
+              icon="AllIcons.ToolbarDecorator.Export" />
+      <action id="RiderTestsSupportPlus.Frontend.LoadSession"
+              class="com.jetbrains.rider.plugins.ridertestssupportplus.LoadSessionAction"
+              text="Load Session (Tests Support Plus)…"
+              description="Open a session saved to a .rtsession file, resolving its tests by name"
+              icon="AllIcons.ToolbarDecorator.Import" />
+      <action id="RiderTestsSupportPlus.Frontend.ImportRunSettings"
+              class="com.jetbrains.rider.plugins.ridertestssupportplus.ImportRunSettingsAction"
+              text="Import Session from .runsettings…"
+              description="Create a session from the tests selected by the TestCaseFilter of a .runsettings file"
+              icon="AllIcons.ToolbarDecorator.Import" />
+      <add-to-group group-id="Rider.UnitTesting.ExportOptions" anchor="last" />
+    </group>
+  </actions>
 
 </idea-plugin>
