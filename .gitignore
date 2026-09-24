@@ -25,3 +25,6 @@ _dotTrace*
 
 # Release pipeline downloads the artifact here
 /release/
+
+# Rider settings of the demo solution
+/demo/**/.idea/
