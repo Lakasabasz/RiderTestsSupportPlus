@@ -193,6 +193,21 @@ class SessionFlowsTest : PerClassSolutionTestBase() {
         assertEquals(ids.sorted(), reloaded.exact.sorted(), report(reloaded))
     }
 
+    @Test
+    @Order(7)
+    fun aWrongFilePointsToTheRightAction() {
+        prepare()
+        // Load Session and Import Session from .runsettings sit next to each other in the menus
+        val session = sessionFile(Triple("$ns.Plain.Simple", null, null)).toString()
+        val imported = call(model().importRunSettings, session)
+        assertTrue(imported.notes.any { it.contains("open it with Load Session") }, report(imported))
+        assertTrue(imported.notes.none { it.contains("select no tests") }, report(imported))
+
+        val runSettings = activeSolutionDirectory.resolve("filter.runsettings").toString()
+        val error = runCatching { call(model().loadSession, runSettings) }.exceptionOrNull()
+        assertTrue(error?.message?.contains("use Import Session from .runsettings") == true, "load error: $error")
+    }
+
     private companion object {
         var prepared = false
     }

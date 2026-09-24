@@ -76,7 +76,10 @@ public static class RunSettingsImporter
       }
       catch (Exception e)
       {
-        errors.Add("Could not read the run settings: " + e.Message);
+        // Load Session and this action sit next to each other, a saved session is the likely wrong pick
+        errors.Add(SessionFile.LooksLikeSessionFile(settingsPath)
+          ? $"{runSettingsPath.Name} is a saved test session, not run settings: open it with Load Session (Tests Support Plus)."
+          : "Could not read the run settings: " + e.Message);
         targets.Clear();
       }
 
@@ -136,7 +139,9 @@ public static class RunSettingsImporter
         var allNotes = notes.Concat(errors).ToList();
         if (requests.Count == 0)
         {
-          allNotes.Insert(0, "The run settings select no tests.");
+          // Unreadable run settings select nothing, the error says why
+          if (settings != null)
+            allNotes.Insert(0, "The run settings select no tests.");
           completion.SetResult(Failed(allNotes.Concat(details).ToArray()));
           return;
         }

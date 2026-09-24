@@ -65,11 +65,35 @@ public sealed class SessionFile
     }
     catch (Exception e)
     {
-      return Task.FromException<SessionOpenResult>(new InvalidDataException("Could not read the session file: " + e.Message, e));
+      // Import from .runsettings sits next to this action, run settings are the likely wrong pick
+      var message = FirstCharacter(path.FullPath) == '<'
+        ? $"{path.Name} is not a saved test session. To create a session from run settings use Import Session from .runsettings."
+        : "Could not read the session file: " + e.Message;
+      return Task.FromException<SessionOpenResult>(new InvalidDataException(message, e));
     }
 
     var requests = file.Tests.Where(t => !string.IsNullOrEmpty(t.TestId)).Select(t => t.ToRequest()).ToList();
     return SessionOpener.ResolveAndOpenAsync(solution, file.Name ?? path.NameWithoutExtension, requests);
+  }
+
+  /// <summary>Whether the file is JSON, as a session file is (run settings are XML).</summary>
+  public static bool LooksLikeSessionFile(string path) =>
+    path.EndsWith("." + Extension, StringComparison.OrdinalIgnoreCase) || FirstCharacter(path) == '{';
+
+  /// <summary>First non-whitespace character of the file (after a BOM), or null.</summary>
+  private static char? FirstCharacter(string path)
+  {
+    try
+    {
+      using var reader = new StreamReader(path, Encoding.UTF8, true);
+      int c;
+      while ((c = reader.Read()) != -1)
+        if (!char.IsWhiteSpace((char)c))
+          return (char)c;
+    }
+    catch (IOException) { }
+    catch (UnauthorizedAccessException) { }
+    return null;
   }
 
   public void Write(TextWriter writer)
