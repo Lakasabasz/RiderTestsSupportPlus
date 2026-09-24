@@ -6,11 +6,13 @@
   release.py check-artifact the downloaded artifact is the release build, get its version
 
 check / update read (environment):
-  INCREMENT     Major | Minor | Patch, applied to the newest version in CHANGELOG.md
+  INCREMENT     Major | Minor | Patch, applied to the newest version in CHANGELOG.md;
+                None releases the newest version as it is (e.g. again after a failed release): no changes needed,
+                nothing is written, the release notes come from its CHANGELOG.md section
   NEW_FEATURES  one entry per line (a leading "- " is optional)
   IMPROVEMENTS  one entry per line
   BUGS          one entry per line
-At least one of NEW_FEATURES, IMPROVEMENTS and BUGS must have an entry.
+Otherwise at least one of NEW_FEATURES, IMPROVEMENTS and BUGS must have an entry.
 
 check-artifact reads RELEASE_VERSION (MAJOR.MINOR.PATCH) and expects the zip and nupkg of one build
 MAJOR.MINOR.PATCH.<build run id> in release/.
@@ -51,19 +53,47 @@ def changes():
     return groups
 
 
-def next_version(changelog):
+def no_increment():
+    return os.environ.get("INCREMENT", "") == "None"
+
+
+def newest_section(changelog):
     newest = re.search(r"^## (\d+)\.(\d+)\.(\d+)\s*$", changelog, re.MULTILINE)
     if not newest:
         fail(f"no '## MAJOR.MINOR.PATCH' section in {CHANGELOG.name}")
+    return newest
+
+
+def newest_changes(changelog):
+    """Entries of the newest section by "### <group>"; entries before any group (older sections) have no title."""
+    newest = newest_section(changelog)
+    body = re.split(r"^## ", changelog[newest.end():], maxsplit=1, flags=re.MULTILINE)[0]
+    groups = []
+    for line in body.splitlines():
+        if line.startswith("### "):
+            groups.append((line[4:].strip(), []))
+        elif line.startswith("- "):
+            if not groups:
+                groups.append((None, []))
+            groups[-1][1].append(line[2:].strip())
+    groups = [(title, items) for title, items in groups if items]
+    if not groups:
+        fail(f"the newest section of {CHANGELOG.name} has no entries")
+    return groups
+
+
+def next_version(changelog):
+    newest = newest_section(changelog)
     major, minor, patch = map(int, newest.groups())
     increment = os.environ.get("INCREMENT", "")
     bumped = {
+        "None": (major, minor, patch),
         "Major": (major + 1, 0, 0),
         "Minor": (major, minor + 1, 0),
         "Patch": (major, minor, patch + 1),
     }.get(increment)
     if not bumped:
-        fail(f"INCREMENT must be Major, Minor or Patch, got '{increment}'")
+        fail(f"INCREMENT must be Major, Minor, Patch or None, got '{increment}'")
     current = f"{major}.{minor}.{patch}"
     version = ".".join(map(str, bumped))
     print(f"{current} -> {version}")
@@ -76,7 +106,7 @@ def notes_html(groups):
         return re.sub(r"`([^`]+)`", r"<code>\1</code>", html.escape(text, quote=False))
 
     return "".join(
-        f"<h3>{html.escape(title)}</h3><ul>" + "".join(f"<li>{item(i)}</li>" for i in items) + "</ul>"
+        (f"<h3>{html.escape(title)}</h3>" if title else "") + "<ul>" + "".join(f"<li>{item(i)}</li>" for i in items) + "</ul>"
         for title, items in groups
     )
 
@@ -90,15 +120,22 @@ def export(**values):
 
 
 def check():
-    groups = changes()
-    next_version(CHANGELOG.read_text(encoding="utf-8"))
+    changelog = CHANGELOG.read_text(encoding="utf-8")
+    groups = newest_changes(changelog) if no_increment() else changes()
+    next_version(changelog)
     for title, items in groups:
-        print(f"{title}: {len(items)}")
+        print(f"{title or 'Changes'}: {len(items)}")
 
 
 def update():
-    groups = changes()
     changelog = CHANGELOG.read_text(encoding="utf-8")
+    if no_increment():
+        version, _ = next_version(changelog)
+        print("Releasing the newest version as it is, nothing to change")
+        export(RELEASE_VERSION=version, RELEASE_NOTES=notes_html(newest_changes(changelog)))
+        return
+
+    groups = changes()
     version, newest_at = next_version(changelog)
 
     section = [f"## {version}"]

@@ -13,13 +13,13 @@
   actions:
     - action: "Release details"
       type: "WAIT_FOR_VARIABLES"
-      comment: "Version increment and changes, one per line. Fill in at least one of the changes."
+      comment: "Version increment and changes, one per line. Fill in at least one of the changes. None: release the newest CHANGELOG.md version again (after a failed release), changes are ignored."
       # TODO: confirm with the YAML exported from the GUI: INCREMENT a drop-down (Patch first, so it's the default),
       # the three changes multi-line text inputs
       variables:
         - key: "INCREMENT"
           type: "VAR"
-          defaults: "Patch\nMinor\nMajor"
+          defaults: "Patch\nMinor\nMajor\nNone"
         - key: "NEW_FEATURES"
           type: "VAR"
           defaults: ""
@@ -63,6 +63,11 @@
       target_branch: "master"
       # No force: fails if master moved since this run started
       without_force: true
+      # INCREMENT None changes nothing, there is nothing to push
+      trigger_conditions:
+        - trigger_condition: "VAR_IS_NOT"
+          trigger_variable_key: "INCREMENT"
+          trigger_variable_value: "None"
       # TODO: the project's own repository as the target (set it up in the GUI, no authorization needed)
       targets:
         - "project_repository"
