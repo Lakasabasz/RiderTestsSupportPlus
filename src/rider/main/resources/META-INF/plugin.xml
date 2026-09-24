@@ -1,5 +1,5 @@
 <idea-plugin require-restart="true">
-  <id>pl.info.lukaszm.plugins.ridertestssupportplus</id>
+  <id>pl.info.lukaszm.testssupportplus</id>
   <name>Tests Support Plus</name>
   <version>_PLACEHOLDER_</version>
   <vendor email="lakasabasz@gmail.com" url="https://eu.buddy.works/lakasabasz/ridertestssupportplus">Łukasz Mastalerz</vendor>
@@ -34,17 +34,17 @@
     <group id="RiderTestsSupportPlus.SessionActions">
       <separator />
       <action id="RiderTestsSupportPlus.Frontend.SaveSession"
-              class="pl.info.lukaszm.plugins.ridertestssupportplus.SaveSessionAction"
+              class="pl.info.lukaszm.testssupportplus.SaveSessionAction"
               text="Save Session (Tests Support Plus)…"
               description="Save the tests of this session, including parametrized ones, to a .rtsession file"
               icon="AllIcons.ToolbarDecorator.Export" />
       <action id="RiderTestsSupportPlus.Frontend.LoadSession"
-              class="pl.info.lukaszm.plugins.ridertestssupportplus.LoadSessionAction"
+              class="pl.info.lukaszm.testssupportplus.LoadSessionAction"
               text="Load Session (Tests Support Plus)…"
               description="Open a session saved to a .rtsession file, resolving its tests by name"
               icon="AllIcons.ToolbarDecorator.Import" />
       <action id="RiderTestsSupportPlus.Frontend.ImportRunSettings"
-              class="pl.info.lukaszm.plugins.ridertestssupportplus.ImportRunSettingsAction"
+              class="pl.info.lukaszm.testssupportplus.ImportRunSettingsAction"
               text="Import Session from .runsettings…"
               description="Create a session from the tests selected by the TestCaseFilter of a .runsettings file"
               icon="AllIcons.ToolbarDecorator.Import" />

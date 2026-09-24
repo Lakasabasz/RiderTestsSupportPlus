@@ -1,4 +1,4 @@
-package pl.info.lukaszm.plugins.ridertestssupportplus.test
+package pl.info.lukaszm.testssupportplus.test
 
 import com.jetbrains.rider.test.framework.testData.IRiderTestDataMarker
 import java.nio.file.Path

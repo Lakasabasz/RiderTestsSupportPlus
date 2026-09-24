@@ -1,4 +1,4 @@
-package pl.info.lukaszm.plugins.ridertestssupportplus
+package pl.info.lukaszm.testssupportplus
 
 import com.jetbrains.rider.unitTesting.actions.base.RiderUnitTestAnActionBase
 import com.jetbrains.rider.unitTesting.actions.targets.RiderUnitTestTarget
