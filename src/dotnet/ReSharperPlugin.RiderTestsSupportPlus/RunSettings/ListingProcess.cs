@@ -21,6 +21,7 @@ internal static class ListingProcess
     try
     {
       var output = new StringBuilder();
+      var errors = new StringBuilder();
       var startInfo = new ProcessStartInfo(executable, string.Format(arguments, Quote(listFile)))
       {
         UseShellExecute = false,
@@ -33,7 +34,11 @@ internal static class ListingProcess
       using (var process = new Process { StartInfo = startInfo })
       {
         process.OutputDataReceived += (_, e) => Append(output, e.Data);
-        process.ErrorDataReceived += (_, e) => Append(output, e.Data);
+        process.ErrorDataReceived += (_, e) =>
+        {
+          Append(output, e.Data);
+          Append(errors, e.Data);
+        };
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
@@ -54,7 +59,12 @@ internal static class ListingProcess
           throw new InvalidOperationException($"{toolName} failed (exit code {process.ExitCode}):\n{Tail(output)}");
       }
 
-      return File.ReadAllLines(listFile).Where(l => l.Length > 0).Distinct().ToList();
+      var names = File.ReadAllLines(listFile).Where(l => l.Length > 0).Distinct().ToList();
+      // vstest exits with 0 and writes an empty list when the test host cannot start (e.g. a missing .NET runtime);
+      // the only trace is on stderr. A filter that matches nothing leaves stderr empty.
+      if (names.Count == 0 && errors.ToString().Trim().Length > 0)
+        throw new InvalidOperationException($"{toolName} listed no tests and reported errors:\n{Tail(errors)}");
+      return names;
     }
     finally
     {
