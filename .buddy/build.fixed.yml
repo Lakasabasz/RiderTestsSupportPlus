@@ -23,6 +23,7 @@
       ./gradlew buildPlugin -PPluginVersion="$VERSION" --no-daemon --console=plain
       ls -la output
       echo "PLUGIN_VERSION=$VERSION" >> "$BUDDY_VAR"
+      echo "PLUGIN_BASE_VERSION=$BASE_VERSION" >> "$BUDDY_VAR"
     cached_dirs:
     - /root/.gradle
     - /root/.local/share/gradle-jvm
@@ -43,3 +44,19 @@
     versions:
     - $PLUGIN_VERSION
     artifact: ridertestssupportplus-artifacts
+  # Master builds also as <PluginVersion> (e.g. 0.3.0): the Release pipeline downloads that version
+  # right after its release commit, the latest master build of a version overwrites it
+  - action: Publish release version
+    type: PUBLISH_ARTIFACT_VERSION
+    local_path: /output
+    deployment_includes:
+    - '*.zip'
+    - '*.nupkg'
+    input_type: BUILD_ARTIFACTS
+    versions:
+    - $PLUGIN_BASE_VERSION
+    artifact: ridertestssupportplus-artifacts
+    trigger_conditions:
+    - trigger_condition: VAR_IS
+      trigger_variable_key: BUDDY_RUN_BRANCH
+      trigger_variable_value: master

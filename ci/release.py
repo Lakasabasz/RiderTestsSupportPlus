@@ -3,7 +3,7 @@
 
   release.py check          validate the input and print the new version, change nothing
   release.py update         add the new version to CHANGELOG.md and gradle.properties
-  release.py find-artifact  find the artifact version built from the release commit
+  release.py check-artifact the downloaded artifact is the release build, get its version
 
 check / update read (environment):
   INCREMENT     Major | Minor | Patch, applied to the newest version in CHANGELOG.md
@@ -12,29 +12,23 @@ check / update read (environment):
   BUGS          one entry per line
 At least one of NEW_FEATURES, IMPROVEMENTS and BUGS must have an entry.
 
-find-artifact reads (environment):
-  RELEASE_VERSION         MAJOR.MINOR.PATCH being released
-  BUDDY_API_TOKEN         Buddy personal access token with ARTIFACT_READ (the workspace needs the Developer API enabled)
-  RELEASE_ARTIFACT_ID     hash ID of the artifact (the ID button on the artifact page), not its name
-  BUDDY_WORKSPACE_DOMAIN  set by Buddy
-  BUDDY_API_URL           optional, default https://api.eu.buddy.works
-Master builds publish MAJOR.MINOR.PATCH.<build run id>. It fails while there is none yet,
-so the action's retries wait for the Build pipeline.
+check-artifact reads RELEASE_VERSION (MAJOR.MINOR.PATCH) and expects the zip and nupkg of one build
+MAJOR.MINOR.PATCH.<build run id> in release/.
 
-update and find-artifact append their results (RELEASE_VERSION, RELEASE_NOTES, ARTIFACT_VERSION)
+update and check-artifact append their results (RELEASE_VERSION, RELEASE_NOTES, ARTIFACT_VERSION)
 to the file in $BUDDY_VAR, which passes them to the next actions, one KEY=VALUE per line.
 """
 import html
-import json
 import os
 import re
 import sys
-import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CHANGELOG = ROOT / "CHANGELOG.md"
 GRADLE_PROPERTIES = ROOT / "gradle.properties"
+# Where the Release pipeline downloads the artifact version
+RELEASE_DIR = ROOT / "release"
 GROUPS = [("New Features", "NEW_FEATURES"), ("Improvements", "IMPROVEMENTS"), ("Bugs", "BUGS")]
 
 
@@ -123,37 +117,30 @@ def update():
     export(RELEASE_VERSION=version, RELEASE_NOTES=notes_html(groups))
 
 
-def find_artifact():
+def check_artifact():
     version = os.environ.get("RELEASE_VERSION", "")
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         fail(f"RELEASE_VERSION must be MAJOR.MINOR.PATCH, got '{version}'")
-    try:
-        token = os.environ["BUDDY_API_TOKEN"]
-        artifact = os.environ["RELEASE_ARTIFACT_ID"]
-        workspace = os.environ["BUDDY_WORKSPACE_DOMAIN"]
-    except KeyError as e:
-        fail(f"{e.args[0]} is not set")
-    api = os.environ.get("BUDDY_API_URL", "https://api.eu.buddy.works")
+    build = re.escape(version) + r"\.\d+"
+    patterns = [rf"ReSharperPlugin\.RiderTestsSupportPlus-({build})\.zip", rf"ReSharperPlugin\.RiderTestsSupportPlus\.({build})\.nupkg"]
+    names = sorted(p.name for p in RELEASE_DIR.glob("*")) if RELEASE_DIR.is_dir() else []
+    print(f"{RELEASE_DIR.name}/: {', '.join(names) or 'nothing'}")
 
-    # Newest first; the release build is one of the latest versions
-    url = f"{api}/workspaces/{workspace}/artifacts/{artifact}/versions?sort_by=created_date&sort_direction=DESC&per_page=50"
-    request = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            versions = json.load(response).get("versions", [])
-    except Exception as e:
-        fail(f"listing artifact versions failed: {e}")
-
-    release_build = re.compile(re.escape(version) + r"\.\d+")
-    found = next((v["version"] for v in versions if release_build.fullmatch(v.get("version", ""))), None)
-    if not found:
-        fail(f"no artifact version {version}.<build> yet")
-    print(f"Found {found}")
+    versions = set()
+    for pattern in patterns:
+        matches = [m.group(1) for m in map(re.compile(pattern).fullmatch, names) if m]
+        if len(matches) != 1:
+            fail(f"expected one file matching {pattern}, found {len(matches)}")
+        versions.update(matches)
+    if len(versions) != 1:
+        fail(f"the zip and the nupkg come from different builds: {', '.join(sorted(versions))}")
+    found = versions.pop()
+    print(f"Artifact version {found}")
     export(ARTIFACT_VERSION=found)
 
 
 if __name__ == "__main__":
-    steps = {"check": check, "update": update, "find-artifact": find_artifact}
+    steps = {"check": check, "update": update, "check-artifact": check_artifact}
     if len(sys.argv) != 2 or sys.argv[1] not in steps:
         fail("usage: release.py " + " | ".join(steps))
     steps[sys.argv[1]]()

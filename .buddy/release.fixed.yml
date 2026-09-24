@@ -3,13 +3,9 @@
 #   2. validates them (at least one change),
 #   3. adds the version to CHANGELOG.md and gradle.properties, a Git Push action commits them to master,
 #      which triggers the Build and Mirror do GH pipelines,
-#   4. waits for the Build pipeline's artifact version <version>.<build run id>,
+#   4. waits for the Build pipeline's artifact version <version> (its master builds publish it too),
 #   5. creates the GitHub release v<version> with the zip and nupkg.
-# Needs:
-#   BUDDY_API_TOKEN      encrypted variable: Buddy personal access token with ARTIFACT_READ
-#                        (Workspace Settings > Developer API must be enabled for the artifact lookup)
-#   RELEASE_ARTIFACT_ID  hash ID of the ridertestssupportplus-artifacts artifact (ID button on the artifact page)
-#   a GitHub integration with access to Lakasabasz/RiderTestsSupportPlus (name in "integration" below)
+# Needs a GitHub integration with access to Lakasabasz/RiderTestsSupportPlus (name in "integration" below)
 - pipeline: "Release"
   # No events: runs only when started manually, and only from master
   refs:
@@ -36,7 +32,7 @@
 
     - action: "Validate"
       type: "BUILD"
-      # Only edits files and calls the Buddy API, no need for the build image
+      # Only edits files, no need for the build image
       image_location: "PUBLIC_REGISTRY"
       docker_registry: "DOCKER_HUB"
       docker_image_name: "library/python"
@@ -47,7 +43,7 @@
 
     - action: "Update CHANGELOG.md"
       type: "BUILD"
-      # Only edits files and calls the Buddy API, no need for the build image
+      # Only edits files, no need for the build image
       image_location: "PUBLIC_REGISTRY"
       docker_registry: "DOCKER_HUB"
       docker_image_name: "library/python"
@@ -71,28 +67,26 @@
       targets:
         - "project_repository"
 
-    - action: "Wait for the artifact"
+    - action: "Download the artifact"
+      type: "DOWNLOAD_ARTIFACT_VERSION"
+      artifact: "ridertestssupportplus-artifacts"
+      # Master builds publish <PluginVersion> as well; it appears once the Build pipeline started by the
+      # release commit is done
+      version: "$RELEASE_VERSION"
+      destination_path: "/release"
+      retry_count: 5
+      retry_interval: 240
+
+    - action: "Check the artifact"
       type: "BUILD"
-      # Only edits files and calls the Buddy API, no need for the build image
       image_location: "PUBLIC_REGISTRY"
       docker_registry: "DOCKER_HUB"
       docker_image_name: "library/python"
       docker_image_tag: "3.13-slim"
       shell: "BASH"
-      # The Build pipeline started by the release commit publishes <version>.<build run id>
-      retry_count: 5
-      retry_interval: 240
       commands: |-
-        # Assets of an earlier release must not be uploaded
-        rm -rf release
-        # Also passes ARTIFACT_VERSION to the next actions
-        python3 ci/release.py find-artifact
-
-    - action: "Download the artifact"
-      type: "DOWNLOAD_ARTIFACT_VERSION"
-      artifact: "ridertestssupportplus-artifacts"
-      version: "$ARTIFACT_VERSION"
-      destination_path: "/release"
+        # Also passes ARTIFACT_VERSION (e.g. 0.3.0.57, in the file names) to the next actions
+        python3 ci/release.py check-artifact
 
     - action: "GitHub release"
       type: "GIT_HUB_RELEASE"
