@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### New Features
 - Load Session and Import Session from .runsettings in the Unit Tests Explorer (toolbar drop-down and context menu)
 ### Improvements
-- Renamed to Tests Support Plus with the new plugin id pl.info.lukaszm.testssupportplus: uninstall versions up to 0.2.x first
+- Renamed to Tests Support Plus with the new plugin id pl.info.lukaszm.testssupportplus: uninstall versions up to 0.3.0 first
 - Picking a session file for import, or run settings for loading, says which action to use
 
 ## 0.3.0
