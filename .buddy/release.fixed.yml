@@ -8,7 +8,7 @@
 # Needs:
 #   BUDDY_API_TOKEN      encrypted variable: Buddy personal access token with ARTIFACT_READ
 #                        (Workspace Settings > Developer API must be enabled for the artifact lookup)
-#   RELEASE_ARTIFACT_ID  hash ID of the rider-tests-support-plus artifact (ID button on the artifact page)
+#   RELEASE_ARTIFACT_ID  hash ID of the ridertestssupportplus-artifacts artifact (ID button on the artifact page)
 #   a GitHub integration with access to Lakasabasz/RiderTestsSupportPlus (name in "integration" below)
 - pipeline: "Release"
   # No events: runs only when started manually, and only from master
@@ -36,26 +36,24 @@
 
     - action: "Validate"
       type: "BUILD"
-      image_location: "PRIVATE_REGISTRY"
+      # Same image as the Build pipeline
+      image_location: "PUBLIC_REGISTRY"
       docker_registry: "OTHER"
       registry: "container.eu.registry.sh"
       docker_image_name: "lakasabasz/build-image"
-      docker_image_tag: "2026.2.2"
-      login: "buddy"
-      password: "$BUILD_IMAGE_REGISTRY_TOKEN"
+      docker_image_tag: "latest"
       shell: "BASH"
       commands: |-
         CHECK_ONLY=1 ci/release-changelog.sh
 
     - action: "Update CHANGELOG.md"
       type: "BUILD"
-      image_location: "PRIVATE_REGISTRY"
+      # Same image as the Build pipeline
+      image_location: "PUBLIC_REGISTRY"
       docker_registry: "OTHER"
       registry: "container.eu.registry.sh"
       docker_image_name: "lakasabasz/build-image"
-      docker_image_tag: "2026.2.2"
-      login: "buddy"
-      password: "$BUILD_IMAGE_REGISTRY_TOKEN"
+      docker_image_tag: "latest"
       shell: "BASH"
       commands: |-
         set -euo pipefail
@@ -90,13 +88,12 @@
 
     - action: "Wait for the artifact"
       type: "BUILD"
-      image_location: "PRIVATE_REGISTRY"
+      # Same image as the Build pipeline
+      image_location: "PUBLIC_REGISTRY"
       docker_registry: "OTHER"
       registry: "container.eu.registry.sh"
       docker_image_name: "lakasabasz/build-image"
-      docker_image_tag: "2026.2.2"
-      login: "buddy"
-      password: "$BUILD_IMAGE_REGISTRY_TOKEN"
+      docker_image_tag: "latest"
       shell: "BASH"
       # The Build pipeline started by the release commit publishes <version>.<build run id>
       retry_count: 5
@@ -111,7 +108,7 @@
 
     - action: "Download the artifact"
       type: "DOWNLOAD_ARTIFACT_VERSION"
-      artifact: "rider-tests-support-plus"
+      artifact: "ridertestssupportplus-artifacts"
       version: "$ARTIFACT_VERSION"
       destination_path: "/release"
 
