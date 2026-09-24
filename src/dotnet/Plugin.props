@@ -5,7 +5,7 @@
     <!-- Keep in sync with ProductVersion in gradle.properties -->
     <SdkVersion>2026.2.2</SdkVersion>
 
-    <Title>Rider Tests Support Plus</Title>
+    <Title>Tests Support Plus</Title>
     <Description>Saves and loads unit test sessions, including parametrized tests resolved by name, and imports sessions from .runsettings (TestCaseFilter or NUnit Where).</Description>
 
     <Authors>Łukasz Mastalerz</Authors>

@@ -1,6 +1,6 @@
 # Bookstore demo
 
-A small NUnit 4 solution for trying Rider Tests Support Plus and taking screenshots of it:
+A small NUnit 4 solution for trying Tests Support Plus and taking screenshots of it:
 a bookstore's pricing, ISBN validation, cart and orders, with 52 passing tests.
 
 | Project | What it shows |

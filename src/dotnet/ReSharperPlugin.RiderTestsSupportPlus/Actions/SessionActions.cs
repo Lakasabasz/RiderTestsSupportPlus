@@ -50,7 +50,7 @@ public class SaveSessionAction : IExecutableAction
     }
     catch (Exception e)
     {
-      MessageBox.ShowError("Could not save the session: " + e.Message, "RiderTestsSupportPlus");
+      MessageBox.ShowError("Could not save the session: " + e.Message, "Tests Support Plus");
     }
   }
 

@@ -124,11 +124,11 @@ public static class SessionOpener
 
     var report = BuildReport(result);
     if (result.Session == null)
-      MessageBox.ShowError(report, "RiderTestsSupportPlus");
+      MessageBox.ShowError(report, "Tests Support Plus");
     else if (!result.IsClean)
-      MessageBox.ShowExclamation(report, "RiderTestsSupportPlus");
+      MessageBox.ShowExclamation(report, "Tests Support Plus");
     else
-      MessageBox.ShowInfo(report, "RiderTestsSupportPlus");
+      MessageBox.ShowInfo(report, "Tests Support Plus");
   }
 
   /// <summary>Shows the result on the main thread once <paramref name="task"/> completes.</summary>
@@ -140,7 +140,7 @@ public static class SessionOpener
       solution.Locks.ExecuteOrQueueReadLockEx(lifetime, "RiderTestsSupportPlus.ShowReport", () =>
       {
         if (t.IsFaulted)
-          MessageBox.ShowError(t.Exception?.GetBaseException().Message ?? "Unknown error", "RiderTestsSupportPlus");
+          MessageBox.ShowError(t.Exception?.GetBaseException().Message ?? "Unknown error", "Tests Support Plus");
         else if (!t.IsCanceled)
           ShowReport(t.Result);
       });

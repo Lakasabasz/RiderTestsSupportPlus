@@ -1,4 +1,4 @@
-# Rider Tests Support Plus
+# Tests Support Plus
 
 Rider plugin by Łukasz Mastalerz that adds to the **Unit Tests** window what the built-in one lacks.
 Everything else in the window keeps working as before.

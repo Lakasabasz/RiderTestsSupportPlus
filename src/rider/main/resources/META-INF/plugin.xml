@@ -1,6 +1,6 @@
 <idea-plugin require-restart="true">
   <id>pl.info.lukaszm.plugins.ridertestssupportplus</id>
-  <name>Rider Tests Support Plus</name>
+  <name>Tests Support Plus</name>
   <version>_PLACEHOLDER_</version>
   <vendor email="lakasabasz@gmail.com" url="https://eu.buddy.works/lakasabasz/ridertestssupportplus">Łukasz Mastalerz</vendor>
   <idea-version since-build="_PLACEHOLDER_" until-build="_PLACEHOLDER_" />
@@ -24,7 +24,8 @@
       by <code>dotnet vstest</code>, <code>NUnit/Where</code> by the NUnit engine, so the session holds exactly
       the tests <code>dotnet vstest</code> would run.</li>
 </ul>
-<p>The actions are in the session's <i>Export/Import</i> menu. Supported test framework: NUnit 3/4.</p>
+<p>The actions are in the session's <i>Export/Import</i> menu; loading and importing also in Explorer (toolbar and context menu).
+   Supported test framework: NUnit 3/4.</p>
 ]]>
   </description>
 
