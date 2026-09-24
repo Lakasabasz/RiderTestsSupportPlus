@@ -69,6 +69,6 @@
     organization: Lakasabasz
     assets:
     - source_path: release/ReSharperPlugin.RiderTestsSupportPlus-$ARTIFACT_VERSION.zip
-      label: Rider plugin
+      label: ReSharperPlugin.RiderTestsSupportPlus-$ARTIFACT_VERSION.zip
     - source_path: release/ReSharperPlugin.RiderTestsSupportPlus.$ARTIFACT_VERSION.nupkg
-      label: ReSharper plugin
+      label: ReSharperPlugin.RiderTestsSupportPlus.$ARTIFACT_VERSION.nupkg
