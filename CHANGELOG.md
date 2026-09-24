@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## 0.4.0
+### New Features
+- Load Session and Import Session from .runsettings in the Unit Tests Explorer (toolbar drop-down and context menu)
+### Improvements
+- Renamed to Tests Support Plus with the new plugin id pl.info.lukaszm.testssupportplus: uninstall versions up to 0.2.x first
+- Picking a session file for import, or run settings for loading, says which action to use
+
 ## 0.3.0
 ### New Features
 - Load Session and Import Session from .runsettings in the Unit Tests Explorer (toolbar drop-down and context menu)
