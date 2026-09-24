@@ -35,18 +35,25 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends libfreetype6 fontconfig \
  && rm -rf /var/lib/apt/lists/*
 
+# Caches live outside /root: Buddy mounts pipeline cache dirs (cached_dirs) over paths like /root/.gradle, which would
+# hide the warmed caches and send every download into the size-limited pipeline cache.
+# gradlew keeps its JDK in $HOME/.local/share/gradle-jvm, hence HOME.
+ENV HOME=/opt/ci-home \
+    GRADLE_USER_HOME=/opt/ci-home/.gradle \
+    NUGET_PACKAGES=/opt/ci-home/.nuget/packages
+
 # Warm-up: a full build (and the integration tests, allowed to fail here) downloads everything else into the image:
 # JDK 21 for gradlew, JDK 25 toolchain, Gradle, JetBrains Runtime, Maven and NuGet dependencies.
 COPY . /tmp/warmup
 RUN cd /tmp/warmup \
  && ./gradlew buildPlugin --no-daemon --console=plain \
  && (./gradlew test --no-daemon --console=plain || echo "Warm-up tests failed, the caches are filled anyway") \
- && cd / && rm -rf /tmp/warmup /root/.gradle/daemon /root/.gradle/.tmp /tmp/* \
- # Restore reads packages from ~/.nuget/packages, the HTTP cache and the JDK archive are not needed
- && rm -rf /root/.local/share/NuGet/http-cache /root/.gradle/jdks/*.tar.gz \
+ && cd / && rm -rf /tmp/warmup "$GRADLE_USER_HOME/daemon" "$GRADLE_USER_HOME/.tmp" /tmp/* \
+ # Restore reads packages from $NUGET_PACKAGES, the HTTP cache and the JDK archive are not needed
+ && rm -rf "$HOME/.local/share/NuGet/http-cache" "$GRADLE_USER_HOME"/jdks/*.tar.gz \
  # Runtimes for other platforms and clang-tidy (~1.7 GB) come with the SDK but the build never reads them.
  # Keep only the marker files, so restore still treats them as installed and doesn't download them again.
- && cd /root/.nuget/packages \
+ && cd "$NUGET_PACKAGES" \
  && for v in jetbrains.dotnetcore.runtime.*/*/ jetbrains.clangtidy.*/*/; do \
       find "$v" -mindepth 1 -maxdepth 1 ! -name '.nupkg.metadata' ! -name '*.sha512' ! -name '*.nuspec' -exec rm -rf {} +; \
     done
