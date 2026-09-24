@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Integration tests of the warehouse without the slow round trips (NUnit/Where, evaluated by the NUnit engine) -->
+<RunSettings>
+  <NUnit>
+    <Where>cat == Integration and cat != Slow</Where>
+  </NUnit>
+</RunSettings>

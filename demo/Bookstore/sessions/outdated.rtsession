@@ -1,0 +1,31 @@
+{
+  "FormatVersion": 1,
+  "Name": "Before refactoring",
+  "Tests": [
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Core.Tests",
+      "TestId": "Bookstore.Core.Tests.PriceCalculatorTests(\"PL\",0.05d).GrossPrice(39.99d)"
+    },
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Core.Tests",
+      "TestId": "Bookstore.Core.Tests.PriceCalculatorTests(\"PL\",0.05d).GrossPrice(49.99d)"
+    },
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Core.Tests",
+      "TestId": "Bookstore.Core.Tests.PriceCalculatorTests(\"FR\",0.055d).BulkDiscount(3,0.05d)"
+    },
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Core.Tests",
+      "TestId": "Bookstore.Core.Tests.IsbnTests.ValidIsbn(\"978-83-01-00000-1\")"
+    },
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Orders.Tests",
+      "TestId": "Bookstore.Orders.Tests.OrderWorkflowTests.PaidOrderCanBeShipped"
+    }
+  ]
+}

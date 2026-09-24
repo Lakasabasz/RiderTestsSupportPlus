@@ -32,6 +32,9 @@ In the **Unit Tests** tool window open a session tab and use its *Export/Import*
 Import lists the build output of the active configuration, so build the test projects first;
 the report says which assembly (and from when) the tests were listed from.
 
+To try it out, open the demo solution [demo/Bookstore](demo/Bookstore/README.md): parametrized NUnit tests,
+ready `.rtsession` files and `.runsettings` files, each with the scenario it shows.
+
 ## Requirements
 
 - Rider 2026.2 (build 262)
@@ -70,6 +73,7 @@ Starts a headless Rider with the plugin (Rider's integration test framework), op
 | `src/tools/RiderTestsSupportPlus.NUnitLister` | Helper that lists tests selected by `NUnit/Where` with the NUnit engine |
 | `protocol` | RD protocol model (used by the integration tests) |
 | `src/test` | Integration tests and the sample solution |
+| `demo/Bookstore` | Demo solution for trying the plugin and taking screenshots |
 
 Design decisions and findings: [DESIGN.md](DESIGN.md).
 

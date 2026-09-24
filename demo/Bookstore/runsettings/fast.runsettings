@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everything except the slow tests (TestCaseFilter, evaluated by dotnet vstest) -->
+<RunSettings>
+  <RunConfiguration>
+    <TestCaseFilter>Category!=Slow</TestCaseFilter>
+  </RunConfiguration>
+</RunSettings>

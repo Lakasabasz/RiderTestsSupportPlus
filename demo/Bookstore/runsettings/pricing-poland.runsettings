@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Polish pricing and the ISBN checks (NUnit/Where, evaluated by the NUnit engine; dotnet vstest's own listing ignores it) -->
+<RunSettings>
+  <NUnit>
+    <Where>test =~ 'PriceCalculatorTests\\("PL"' or class == 'Bookstore.Core.Tests.IsbnTests'</Where>
+  </NUnit>
+</RunSettings>

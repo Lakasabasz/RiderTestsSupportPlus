@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Smoke tests from both test projects (TestCaseFilter, evaluated by dotnet vstest) -->
+<RunSettings>
+  <RunConfiguration>
+    <TestCaseFilter>Category=Smoke</TestCaseFilter>
+  </RunConfiguration>
+</RunSettings>

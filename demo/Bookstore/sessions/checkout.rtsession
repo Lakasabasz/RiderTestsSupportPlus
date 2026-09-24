@@ -1,0 +1,51 @@
+{
+  "FormatVersion": 1,
+  "Name": "Checkout",
+  "Tests": [
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Core.Tests",
+      "TestId": "Bookstore.Core.Tests.PriceCalculatorTests(\"PL\",0.05d).GrossPrice(39.99d)"
+    },
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Core.Tests",
+      "TestId": "Bookstore.Core.Tests.PriceCalculatorTests(\"PL\",0.05d).BulkDiscount(10,0.1d)"
+    },
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Core.Tests",
+      "TestId": "Bookstore.Core.Tests.PriceCalculatorTests(\"DE\",0.07d).BulkDiscount(10,0.1d)"
+    },
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Core.Tests",
+      "TestId": "Bookstore.Core.Tests.PriceCalculatorTests(\"UK\",0.0d).EbookHasTheSameRateAsPrint"
+    },
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Core.Tests",
+      "TestId": "Bookstore.Core.Tests.CartTests.TotalOfTwoBooks(\"PL\",94.5d)"
+    },
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Core.Tests",
+      "TestId": "Bookstore.Core.Tests.IsbnTests.ValidIsbn(\"978-0-306-40615-7\")"
+    },
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Core.Tests",
+      "TestId": "Bookstore.Core.Tests.IsbnTests.InvalidIsbn(\"\\\"9780306406157\\\"\")"
+    },
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Orders.Tests",
+      "TestId": "Bookstore.Orders.Tests.OrderWorkflowTests.CancelPaidOrder"
+    },
+    {
+      "ProviderId": "NUnit3x",
+      "ProjectName": "Bookstore.Orders.Tests",
+      "TestId": "Bookstore.Orders.Tests.WarehouseIntegrationTests(Paid).ShippingLabel(\"Warsaw, PL\")"
+    }
+  ]
+}
