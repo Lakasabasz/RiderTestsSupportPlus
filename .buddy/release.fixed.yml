@@ -1,12 +1,12 @@
 # Manual release from master:
 #   1. asks for the version increment and the changes,
 #   2. validates them (at least one change),
-#   3. adds the version to CHANGELOG.md and gradle.properties and pushes that commit to master,
+#   3. adds the version to CHANGELOG.md and gradle.properties, a Git Push action commits them to master,
 #      which triggers the Build and Mirror do GH pipelines,
 #   4. waits for the Build pipeline's artifact version <version>.<build run id>,
 #   5. creates the GitHub release v<version> with the zip and nupkg.
 # Needs:
-#   BUDDY_API_TOKEN      encrypted variable: Buddy personal access token with "Write to repositories" and ARTIFACT_READ
+#   BUDDY_API_TOKEN      encrypted variable: Buddy personal access token with ARTIFACT_READ
 #                        (Workspace Settings > Developer API must be enabled for the artifact lookup)
 #   RELEASE_ARTIFACT_ID  hash ID of the rider-tests-support-plus artifact (ID button on the artifact page)
 #   a GitHub integration with access to Lakasabasz/RiderTestsSupportPlus (name in "integration" below)
@@ -59,16 +59,9 @@
       shell: "BASH"
       commands: |-
         set -euo pipefail
-        # A fresh clone: the pipeline filesystem is kept between runs and holds build outputs
-        rm -rf /tmp/release
-        git clone -q --branch master "https://$BUDDY_API_TOKEN@eu.buddy.works/$BUDDY_WORKSPACE_DOMAIN/$BUDDY_PROJECT_NAME_ID" /tmp/release
-        cd /tmp/release
+        # Assets downloaded by an earlier run must not get into the release commit (also in .gitignore)
+        rm -rf release
         VERSION=$(ci/release-changelog.sh | tail -n 1)
-        git -c user.name="${BUDDY_TRIGGERING_ACTOR_NAME:-Buddy}" -c user.email="${BUDDY_TRIGGERING_ACTOR_EMAIL:-noreply@buddy.works}" \
-          commit -q -am "Release $VERSION"
-        # No force: fails if master moved since the clone
-        git push -q origin HEAD:master
-        git show --stat HEAD
         # Release notes: the new CHANGELOG.md section as one line of HTML, $BUDDY_VAR takes one KEY=VALUE per line
         NOTES=$(awk '
           function html(s) { gsub(/&/, "\\&amp;", s); gsub(/</, "\\&lt;", s); gsub(/>/, "\\&gt;", s)
@@ -80,9 +73,20 @@
           END { if (list) printf "</ul>" }' CHANGELOG.md)
         {
           echo "RELEASE_VERSION=$VERSION"
-          echo "RELEASE_COMMIT=$(git rev-parse HEAD)"
           echo "RELEASE_NOTES=$NOTES"
         } >> "$BUDDY_VAR"
+
+    - action: "Push release commit"
+      type: "PUSH"
+      # Commits CHANGELOG.md and gradle.properties from the pipeline filesystem; the push triggers
+      # the Build and Mirror do GH pipelines
+      comment: "Release $RELEASE_VERSION"
+      target_branch: "master"
+      # No force: fails if master moved since this run started
+      without_force: true
+      # TODO: the project's own repository as the target (set it up in the GUI, no authorization needed)
+      targets:
+        - "project_repository"
 
     - action: "Wait for the artifact"
       type: "BUILD"
@@ -118,7 +122,8 @@
       organization: "Lakasabasz"
       repository: "RiderTestsSupportPlus"
       tag_name: "v$RELEASE_VERSION"
-      target_commitish: "$RELEASE_COMMIT"
+      # The release commit, unless master moved on while waiting for the artifact
+      target_commitish: "master"
       release_name: "$RELEASE_VERSION"
       body: "$RELEASE_NOTES"
       # Draft until the first release is checked, then false
