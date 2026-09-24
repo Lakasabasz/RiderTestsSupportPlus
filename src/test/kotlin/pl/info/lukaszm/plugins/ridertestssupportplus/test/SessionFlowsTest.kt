@@ -1,4 +1,4 @@
-package com.jetbrains.rider.plugins.ridertestssupportplus.test
+package pl.info.lukaszm.plugins.ridertestssupportplus.test
 
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DefaultActionGroup
