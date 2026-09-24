@@ -63,7 +63,7 @@
     target_commitish: master
     release_name: $RELEASE_VERSION
     body: $RELEASE_NOTES
-    draft: true
+    draft: false
     zip_assets: false
     repository: RiderTestsSupportPlus
     organization: Lakasabasz
