@@ -43,8 +43,8 @@
     - project_repository
   - action: Download the artifact
     type: DOWNLOAD_ARTIFACT_VERSION
-    retry_interval: 240
-    retry_count: 5
+    retry_interval: 180
+    retry_count: 6
     destination_path: /release
     version: $RELEASE_VERSION
     artifact: ridertestssupportplus-artifacts
@@ -63,7 +63,6 @@
     target_commitish: master
     release_name: $RELEASE_VERSION
     body: $RELEASE_NOTES
-    draft: false
     zip_assets: false
     repository: RiderTestsSupportPlus
     organization: Lakasabasz
