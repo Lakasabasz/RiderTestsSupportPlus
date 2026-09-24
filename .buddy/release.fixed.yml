@@ -41,6 +41,9 @@
     comment: Release $RELEASE_VERSION
     targets:
     - project_repository
+  - action: Sleep 30 seconds
+    type: SLEEP
+    sleep_in_sec: 30
   - action: Download the artifact
     type: DOWNLOAD_ARTIFACT_VERSION
     retry_interval: 180
