@@ -29,11 +29,24 @@ In the **Unit Tests** tool window open a session tab and use its *Export/Import*
 | *Load Session (Tests Support Plus)…* | Opens a session from a `.rtsession` file, resolving its tests by name |
 | *Import Session from .runsettings…* | Creates a session from the tests the file selects |
 
+![The Export/Import menu of a session tab with the plugin's actions](docs/images/session-export-import-menu.png)
+
+![A session loaded from demo/Bookstore/sessions/checkout.rtsession: parametrized fixtures and test cases resolved by name](docs/images/load-session-checkout.png)
+
+Tests that no longer exist are replaced by their nearest parent and reported
+(demo/Bookstore/sessions/outdated.rtsession):
+
+![Report after loading a session saved before a refactoring: three tests replaced by a parent](docs/images/load-session-outdated-report.png)
+
 *Load Session* and *Import Session from .runsettings* are also in **Explorer**: in the drop-down right after
 its *Import Session* button and in the context menu of the test tree.
 
+![The drop-down in Explorer next to its Import Session button](docs/images/explorer-import-menu.png)
+
 Import lists the build output of the active configuration, so build the test projects first;
 the report says which assembly (and from when) the tests were listed from.
+
+![A session imported from demo/Bookstore/runsettings/pricing-poland.runsettings (NUnit/Where): 16 tests](docs/images/import-runsettings-session.png)
 
 To try it out, open the demo solution [demo/Bookstore](demo/Bookstore/README.md): parametrized NUnit tests,
 ready `.rtsession` files and `.runsettings` files, each with the scenario it shows.
