@@ -49,6 +49,23 @@
               icon="AllIcons.ToolbarDecorator.Import" />
       <add-to-group group-id="Rider.UnitTesting.ExportOptions" anchor="last" />
     </group>
+
+    <!-- Explorer has no session to save, and its Import Session is a plain button: loading and importing
+         (which create a new session) get a drop-down next to it and a place in the tree's context menu -->
+    <group id="RiderTestsSupportPlus.ExplorerImport" popup="true"
+           class="com.jetbrains.rider.unitTesting.actions.RiderUnitTestPopupActionGroup"
+           text="Import (Tests Support Plus)" description="Load a saved session or import one from .runsettings"
+           icon="AllIcons.ToolbarDecorator.Import">
+      <reference ref="RiderTestsSupportPlus.Frontend.LoadSession" />
+      <reference ref="RiderTestsSupportPlus.Frontend.ImportRunSettings" />
+      <add-to-group group-id="Rider.UnitTesting.TopExplorerToolbar" anchor="after" relative-to-action="RiderUnitTestImportSessionAction" />
+    </group>
+    <group id="RiderTestsSupportPlus.ExplorerContext">
+      <separator />
+      <reference ref="RiderTestsSupportPlus.Frontend.LoadSession" />
+      <reference ref="RiderTestsSupportPlus.Frontend.ImportRunSettings" />
+      <add-to-group group-id="Rider.UnitTesting.Explorer.PopupContext.Plugin" anchor="last" />
+    </group>
   </actions>
 
 </idea-plugin>

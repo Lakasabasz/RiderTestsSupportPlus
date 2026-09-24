@@ -29,6 +29,9 @@ In the **Unit Tests** tool window open a session tab and use its *Export/Import*
 | *Load Session (Tests Support Plus)…* | Opens a session from a `.rtsession` file, resolving its tests by name |
 | *Import Session from .runsettings…* | Creates a session from the tests the file selects |
 
+*Load Session* and *Import Session from .runsettings* are also in **Explorer**: in the drop-down right after
+its *Import Session* button and in the context menu of the test tree.
+
 Import lists the build output of the active configuration, so build the test projects first;
 the report says which assembly (and from when) the tests were listed from.
 

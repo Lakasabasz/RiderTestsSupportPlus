@@ -78,15 +78,27 @@ class SessionFlowsTest : PerClassSolutionTestBase() {
     @Test
     @Order(1)
     fun actionsAreRegisteredInUnitTestsWindow() {
-        val group = ActionManager.getInstance().getAction("Rider.UnitTesting.ExportOptions") as DefaultActionGroup
-        val ids = ActionManager.getInstance().let { am ->
-            fun collect(g: DefaultActionGroup): List<String> = g.childActionsOrStubs.flatMap {
-                if (it is DefaultActionGroup) collect(it) else listOfNotNull(am.getId(it))
-            }
-            collect(group)
+        val am = ActionManager.getInstance()
+        fun group(id: String) = am.getAction(id) as DefaultActionGroup
+        fun actionIds(g: DefaultActionGroup): List<String> = g.childActionsOrStubs.flatMap {
+            if (it is DefaultActionGroup) actionIds(it) else listOfNotNull(am.getId(it))
         }
-        for (id in listOf("SaveSession", "LoadSession", "ImportRunSettings"))
-            assertTrue(ids.contains("RiderTestsSupportPlus.Frontend.$id"), "$id missing in $ids")
+        fun assertActions(groupId: String, expected: List<String>, absent: List<String> = emptyList()) {
+            val ids = actionIds(group(groupId))
+            for (id in expected)
+                assertTrue(ids.contains("RiderTestsSupportPlus.Frontend.$id"), "$id missing in $groupId: $ids")
+            for (id in absent)
+                assertTrue(!ids.contains("RiderTestsSupportPlus.Frontend.$id"), "$id unexpected in $groupId: $ids")
+        }
+
+        // Session tab: Export/Import drop-down
+        assertActions("Rider.UnitTesting.ExportOptions", listOf("SaveSession", "LoadSession", "ImportRunSettings"))
+        // Explorer: no session to save; a drop-down right after Rider's Import Session button, and the context menu
+        assertActions("Rider.UnitTesting.TopExplorerToolbar", listOf("LoadSession", "ImportRunSettings"), listOf("SaveSession"))
+        assertActions("Rider.UnitTesting.Explorer.PopupContext.Plugin", listOf("LoadSession", "ImportRunSettings"), listOf("SaveSession"))
+        val toolbar = group("Rider.UnitTesting.TopExplorerToolbar").childActionsOrStubs.map { am.getId(it) }
+        assertEquals("RiderTestsSupportPlus.ExplorerImport",
+            toolbar.getOrNull(toolbar.indexOf("RiderUnitTestImportSessionAction") + 1), "Explorer toolbar: $toolbar")
     }
 
     @Test
