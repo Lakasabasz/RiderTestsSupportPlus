@@ -36,43 +36,26 @@
 
     - action: "Validate"
       type: "BUILD"
-      # Same image as the Build pipeline
+      # Only edits files and calls the Buddy API, no need for the build image
       image_location: "PUBLIC_REGISTRY"
-      docker_registry: "OTHER"
-      registry: "container.eu.registry.sh"
-      docker_image_name: "lakasabasz/build-image"
-      docker_image_tag: "latest"
+      docker_image_name: "library/python"
+      docker_image_tag: "3.13-slim"
       shell: "BASH"
       commands: |-
-        CHECK_ONLY=1 ci/release-changelog.sh
+        python3 ci/release.py check
 
     - action: "Update CHANGELOG.md"
       type: "BUILD"
-      # Same image as the Build pipeline
+      # Only edits files and calls the Buddy API, no need for the build image
       image_location: "PUBLIC_REGISTRY"
-      docker_registry: "OTHER"
-      registry: "container.eu.registry.sh"
-      docker_image_name: "lakasabasz/build-image"
-      docker_image_tag: "latest"
+      docker_image_name: "library/python"
+      docker_image_tag: "3.13-slim"
       shell: "BASH"
       commands: |-
-        set -euo pipefail
         # Assets downloaded by an earlier run must not get into the release commit (also in .gitignore)
         rm -rf release
-        VERSION=$(ci/release-changelog.sh | tail -n 1)
-        # Release notes: the new CHANGELOG.md section as one line of HTML, $BUDDY_VAR takes one KEY=VALUE per line
-        NOTES=$(awk '
-          function html(s) { gsub(/&/, "\\&amp;", s); gsub(/</, "\\&lt;", s); gsub(/>/, "\\&gt;", s)
-                             while (sub(/`/, "<code>", s) && sub(/`/, "</code>", s)) {} return s }
-          /^## / { if (seen) exit; seen = 1; next }
-          !seen { next }
-          /^### / { if (list) printf "</ul>"; list = 0; printf "<h3>%s</h3>", html(substr($0, 5)); next }
-          /^- / { if (!list) printf "<ul>"; list = 1; printf "<li>%s</li>", html(substr($0, 3)) }
-          END { if (list) printf "</ul>" }' CHANGELOG.md)
-        {
-          echo "RELEASE_VERSION=$VERSION"
-          echo "RELEASE_NOTES=$NOTES"
-        } >> "$BUDDY_VAR"
+        # Also passes RELEASE_VERSION and RELEASE_NOTES (one line of HTML) to the next actions
+        python3 ci/release.py update
 
     - action: "Push release commit"
       type: "PUSH"
@@ -88,23 +71,19 @@
 
     - action: "Wait for the artifact"
       type: "BUILD"
-      # Same image as the Build pipeline
+      # Only edits files and calls the Buddy API, no need for the build image
       image_location: "PUBLIC_REGISTRY"
-      docker_registry: "OTHER"
-      registry: "container.eu.registry.sh"
-      docker_image_name: "lakasabasz/build-image"
-      docker_image_tag: "latest"
+      docker_image_name: "library/python"
+      docker_image_tag: "3.13-slim"
       shell: "BASH"
       # The Build pipeline started by the release commit publishes <version>.<build run id>
       retry_count: 5
       retry_interval: 240
       commands: |-
-        set -euo pipefail
-        ARTIFACT_VERSION=$(NEW_VERSION="$RELEASE_VERSION" ci/release-find-artifact.sh | tail -n 1)
-        echo "Found $ARTIFACT_VERSION"
-        echo "ARTIFACT_VERSION=$ARTIFACT_VERSION" >> "$BUDDY_VAR"
         # Assets of an earlier release must not be uploaded
         rm -rf release
+        # Also passes ARTIFACT_VERSION to the next actions
+        python3 ci/release.py find-artifact
 
     - action: "Download the artifact"
       type: "DOWNLOAD_ARTIFACT_VERSION"
