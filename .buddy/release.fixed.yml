@@ -1,0 +1,132 @@
+# Manual release from master:
+#   1. asks for the version increment and the changes,
+#   2. validates them (at least one change),
+#   3. adds the version to CHANGELOG.md and gradle.properties and pushes that commit to master,
+#      which triggers the Build and Mirror do GH pipelines,
+#   4. waits for the Build pipeline's artifact version <version>.<build run id>,
+#   5. creates the GitHub release v<version> with the zip and nupkg.
+# Needs:
+#   BUDDY_API_TOKEN      encrypted variable: Buddy personal access token with "Write to repositories" and ARTIFACT_READ
+#                        (Workspace Settings > Developer API must be enabled for the artifact lookup)
+#   RELEASE_ARTIFACT_ID  hash ID of the rider-tests-support-plus artifact (ID button on the artifact page)
+#   a GitHub integration with access to Lakasabasz/RiderTestsSupportPlus (name in "integration" below)
+- pipeline: "Release"
+  # No events: runs only when started manually, and only from master
+  refs:
+    - "refs/heads/master"
+  actions:
+    - action: "Release details"
+      type: "WAIT_FOR_VARIABLES"
+      comment: "Version increment and changes, one per line. Fill in at least one of the changes."
+      # TODO: confirm with the YAML exported from the GUI: INCREMENT a drop-down (Patch first, so it's the default),
+      # the three changes multi-line text inputs
+      variables:
+        - key: "INCREMENT"
+          type: "VAR"
+          defaults: "Patch\nMinor\nMajor"
+        - key: "NEW_FEATURES"
+          type: "VAR"
+          defaults: ""
+        - key: "IMPROVEMENTS"
+          type: "VAR"
+          defaults: ""
+        - key: "BUGS"
+          type: "VAR"
+          defaults: ""
+
+    - action: "Validate"
+      type: "BUILD"
+      image_location: "PRIVATE_REGISTRY"
+      docker_registry: "OTHER"
+      registry: "container.eu.registry.sh"
+      docker_image_name: "lakasabasz/build-image"
+      docker_image_tag: "2026.2.2"
+      login: "buddy"
+      password: "$BUILD_IMAGE_REGISTRY_TOKEN"
+      shell: "BASH"
+      commands: |-
+        CHECK_ONLY=1 ci/release-changelog.sh
+
+    - action: "Update CHANGELOG.md"
+      type: "BUILD"
+      image_location: "PRIVATE_REGISTRY"
+      docker_registry: "OTHER"
+      registry: "container.eu.registry.sh"
+      docker_image_name: "lakasabasz/build-image"
+      docker_image_tag: "2026.2.2"
+      login: "buddy"
+      password: "$BUILD_IMAGE_REGISTRY_TOKEN"
+      shell: "BASH"
+      commands: |-
+        set -euo pipefail
+        # A fresh clone: the pipeline filesystem is kept between runs and holds build outputs
+        rm -rf /tmp/release
+        git clone -q --branch master "https://$BUDDY_API_TOKEN@eu.buddy.works/$BUDDY_WORKSPACE_DOMAIN/$BUDDY_PROJECT_NAME_ID" /tmp/release
+        cd /tmp/release
+        VERSION=$(ci/release-changelog.sh | tail -n 1)
+        git -c user.name="${BUDDY_TRIGGERING_ACTOR_NAME:-Buddy}" -c user.email="${BUDDY_TRIGGERING_ACTOR_EMAIL:-noreply@buddy.works}" \
+          commit -q -am "Release $VERSION"
+        # No force: fails if master moved since the clone
+        git push -q origin HEAD:master
+        git show --stat HEAD
+        # Release notes: the new CHANGELOG.md section as one line of HTML, $BUDDY_VAR takes one KEY=VALUE per line
+        NOTES=$(awk '
+          function html(s) { gsub(/&/, "\\&amp;", s); gsub(/</, "\\&lt;", s); gsub(/>/, "\\&gt;", s)
+                             while (sub(/`/, "<code>", s) && sub(/`/, "</code>", s)) {} return s }
+          /^## / { if (seen) exit; seen = 1; next }
+          !seen { next }
+          /^### / { if (list) printf "</ul>"; list = 0; printf "<h3>%s</h3>", html(substr($0, 5)); next }
+          /^- / { if (!list) printf "<ul>"; list = 1; printf "<li>%s</li>", html(substr($0, 3)) }
+          END { if (list) printf "</ul>" }' CHANGELOG.md)
+        {
+          echo "RELEASE_VERSION=$VERSION"
+          echo "RELEASE_COMMIT=$(git rev-parse HEAD)"
+          echo "RELEASE_NOTES=$NOTES"
+        } >> "$BUDDY_VAR"
+
+    - action: "Wait for the artifact"
+      type: "BUILD"
+      image_location: "PRIVATE_REGISTRY"
+      docker_registry: "OTHER"
+      registry: "container.eu.registry.sh"
+      docker_image_name: "lakasabasz/build-image"
+      docker_image_tag: "2026.2.2"
+      login: "buddy"
+      password: "$BUILD_IMAGE_REGISTRY_TOKEN"
+      shell: "BASH"
+      # The Build pipeline started by the release commit publishes <version>.<build run id>
+      retry_count: 5
+      retry_interval: 240
+      commands: |-
+        set -euo pipefail
+        ARTIFACT_VERSION=$(NEW_VERSION="$RELEASE_VERSION" ci/release-find-artifact.sh | tail -n 1)
+        echo "Found $ARTIFACT_VERSION"
+        echo "ARTIFACT_VERSION=$ARTIFACT_VERSION" >> "$BUDDY_VAR"
+        # Assets of an earlier release must not be uploaded
+        rm -rf release
+
+    - action: "Download the artifact"
+      type: "DOWNLOAD_ARTIFACT_VERSION"
+      artifact: "rider-tests-support-plus"
+      version: "$ARTIFACT_VERSION"
+      destination_path: "/release"
+
+    - action: "GitHub release"
+      type: "GIT_HUB_RELEASE"
+      # TODO: name of the GitHub integration in Buddy
+      integration: "github"
+      organization: "Lakasabasz"
+      repository: "RiderTestsSupportPlus"
+      tag_name: "v$RELEASE_VERSION"
+      target_commitish: "$RELEASE_COMMIT"
+      release_name: "$RELEASE_VERSION"
+      body: "$RELEASE_NOTES"
+      # Draft until the first release is checked, then false
+      draft: true
+      # The plugin zip is uploaded as is, not zipped again
+      zip_assets: false
+      assets:
+        - source_path: "release/ReSharperPlugin.RiderTestsSupportPlus-$ARTIFACT_VERSION.zip"
+          label: "Rider plugin"
+        - source_path: "release/ReSharperPlugin.RiderTestsSupportPlus.$ARTIFACT_VERSION.nupkg"
+          label: "ReSharper plugin"

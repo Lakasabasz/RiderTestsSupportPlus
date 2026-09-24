@@ -9,8 +9,14 @@
     commands: |-
       set -eu
       BASE_VERSION=$(sed -n 's/^PluginVersion=//p' gradle.properties)
-      BRANCH_ID=$(printf '%s' "$BUDDY_RUN_BRANCH" | tr -c 'A-Za-z0-9' '-')
-      VERSION="$BASE_VERSION-$BRANCH_ID.$BUDDY_RUN_ID"
+      # master: <PluginVersion>.<run id>, e.g. 0.3.0.57, the Release pipeline looks for it;
+      # other branches: <PluginVersion>-<branch>.<run id>, never mistaken for a release
+      if [ "$BUDDY_RUN_BRANCH" = master ]; then
+        VERSION="$BASE_VERSION.$BUDDY_RUN_ID"
+      else
+        BRANCH_ID=$(printf '%s' "$BUDDY_RUN_BRANCH" | tr -c 'A-Za-z0-9' '-')
+        VERSION="$BASE_VERSION-$BRANCH_ID.$BUDDY_RUN_ID"
+      fi
       echo "Building $VERSION"
       # The pipeline filesystem is kept between runs, don't publish zips of earlier runs
       rm -rf output
@@ -32,6 +38,7 @@
     local_path: /output
     deployment_includes:
     - '*.zip'
+    - '*.nupkg'
     input_type: BUILD_ARTIFACTS
     versions:
     - $PLUGIN_VERSION

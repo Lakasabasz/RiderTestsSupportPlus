@@ -107,6 +107,12 @@ val testDotNet by tasks.registering {
     }
 }
 
+// Body of the newest "## <version>" section of CHANGELOG.md, including its "### <group>" headings
+fun latestChanges(): String {
+    val changelogText = file("${rootDir}/CHANGELOG.md").readText().replace("\r\n", "\n")
+    return Regex("(?ms)^## [^\n]*\n(.*?)(?=^## |\\z)").find(changelogText)?.groupValues?.get(1)?.trim() ?: ""
+}
+
 tasks.buildPlugin {
     doLast {
         copy {
@@ -114,12 +120,9 @@ tasks.buildPlugin {
             into("${rootDir}/output")
         }
 
-        // TODO: See also org.jetbrains.changelog: https://github.com/JetBrains/gradle-changelog-plugin
-        val changelogText = file("${rootDir}/CHANGELOG.md").readText()
-        val changelogMatches = Regex("(?s)(-.+?)(?=##|$)").findAll(changelogText)
-        val changeNotes = changelogMatches.map {
-            it.groups[1]!!.value.replace("(?s)- ".toRegex(), "\u2022 ").replace("`", "").replace(",", "%2C").replace(";", "%3B")
-        }.take(1).joinToString()
+        val changeNotes = latestChanges()
+            .replace("(?m)^### (.*)$".toRegex(), "$1:").replace("(?m)^- ".toRegex(), "\u2022 ")
+            .replace("`", "").replace(",", "%2C").replace(";", "%3B")
 
         val arguments = buildToolArgs!!.toMutableList()
         arguments.add("/t:Pack")
@@ -190,13 +193,9 @@ tasks.runIde {
 }
 
 tasks.patchPluginXml {
-    // TODO: See also org.jetbrains.changelog: https://github.com/JetBrains/gradle-changelog-plugin
-    val changelogText = file("${rootDir}/CHANGELOG.md").readText()
-    val changelogMatches = Regex("(?s)(-.+?)(?=##|\$)").findAll(changelogText)
-
-    changeNotes.set(changelogMatches.map {
-        it.groups[1]!!.value.replace("(?s)\r?\n".toRegex(), "<br />\n")
-    }.take(1).joinToString())
+    changeNotes.set(provider {
+        latestChanges().replace("(?m)^### (.*)$".toRegex(), "<b>$1</b>").replace("\n", "<br />\n")
+    })
 }
 
 // Both runIde and test sandboxes need the backend assembly
