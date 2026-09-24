@@ -38,6 +38,7 @@
       type: "BUILD"
       # Only edits files and calls the Buddy API, no need for the build image
       image_location: "PUBLIC_REGISTRY"
+      docker_registry: "DOCKER_HUB"
       docker_image_name: "library/python"
       docker_image_tag: "3.13-slim"
       shell: "BASH"
@@ -48,6 +49,7 @@
       type: "BUILD"
       # Only edits files and calls the Buddy API, no need for the build image
       image_location: "PUBLIC_REGISTRY"
+      docker_registry: "DOCKER_HUB"
       docker_image_name: "library/python"
       docker_image_tag: "3.13-slim"
       shell: "BASH"
@@ -73,6 +75,7 @@
       type: "BUILD"
       # Only edits files and calls the Buddy API, no need for the build image
       image_location: "PUBLIC_REGISTRY"
+      docker_registry: "DOCKER_HUB"
       docker_image_name: "library/python"
       docker_image_tag: "3.13-slim"
       shell: "BASH"
