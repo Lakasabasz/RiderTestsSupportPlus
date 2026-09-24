@@ -17,6 +17,11 @@ pluginManagement {
     }
 }
 
+plugins {
+    // Downloads the JDK 25 toolchain (compileJava, rdgen) when the machine has none, e.g. on CI
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
 rootProject.name = "ReSharperPlugin.RiderTestsSupportPlus"
 
 include(":protocol")

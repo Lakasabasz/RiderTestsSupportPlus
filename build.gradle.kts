@@ -136,8 +136,15 @@ tasks.buildPlugin {
 
 dependencies {
     intellijPlatform {
-        rider(ProductVersion) {
-            useInstaller = false
+        // RiderSdkPath (or RIDER_SDK_PATH): an already extracted Rider, e.g. baked into the CI image (see ci/Dockerfile).
+        // Otherwise the multi-platform Rider is downloaded from Maven (~4 GB, ~10 GB extracted in the Gradle cache).
+        val riderSdkPath = providers.gradleProperty("RiderSdkPath").orElse(providers.environmentVariable("RIDER_SDK_PATH")).orNull
+        if (riderSdkPath != null) {
+            local(riderSdkPath)
+        } else {
+            rider(ProductVersion) {
+                useInstaller = false
+            }
         }
         jetbrainsRuntime()
 
@@ -165,6 +172,9 @@ dependencies {
 tasks.test {
     // The tests exercise the backend assembly in the sandbox, which Gradle does not track as a test input
     outputs.upToDateWhen { false }
+    // .NET images set DOTNET_VERSION to the runtime version (e.g. 10.0.12); the Rider test framework takes it
+    // as the SDK version to download, which does not exist
+    environment.remove("DOTNET_VERSION")
     // Ignore IJ Platform JUnit5 framework set up and tear down
     systemProperty("intellij.build.test.ignoreFirstAndLastTests", "true")
     useJUnitPlatform()

@@ -1,0 +1,9 @@
+# Keep the build context small: only sources are needed (see ci/Dockerfile)
+.git
+.gradle
+.kotlin
+.intellijPlatform
+build
+output
+**/bin
+**/obj

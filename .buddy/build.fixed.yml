@@ -1,0 +1,42 @@
+# Builds the plugin on every push to any branch and publishes the zip as a Buddy artifact version.
+# Version of a branch build: <PluginVersion>-<branch>.<run id>, e.g. 0.2.0-feature-x.42,
+# so it can never be mistaken for a release.
+- pipeline: "Build"
+  events:
+    - type: "PUSH"
+      refs:
+        - "refs/heads/*"
+  actions:
+    - action: "Build plugin"
+      type: "BUILD"
+      # CI image from ci/Dockerfile: .NET SDK + trimmed Rider SDK + warmed Gradle/NuGet caches, so nothing
+      # big is downloaded or cached in the pipeline filesystem (5 GB limit). Rebuild it when ProductVersion changes.
+      image_location: "PRIVATE_REGISTRY"
+      docker_registry: "OTHER"
+      registry: "container.eu.registry.sh"
+      docker_image_name: "lakasabasz/build-image"
+      docker_image_tag: "2026.2.2"
+      login: "buddy"
+      password: "$BUILD_IMAGE_REGISTRY_TOKEN"
+      shell: "BASH"
+      commands: |-
+        set -eu
+        BASE_VERSION=$(sed -n 's/^PluginVersion=//p' gradle.properties)
+        BRANCH_ID=$(printf '%s' "$BUDDY_RUN_BRANCH" | tr -c 'A-Za-z0-9' '-')
+        VERSION="$BASE_VERSION-$BRANCH_ID.$BUDDY_RUN_ID"
+        echo "Building $VERSION"
+        # The pipeline filesystem is kept between runs, don't publish zips of earlier runs
+        rm -rf output
+        ./gradlew buildPlugin -PPluginVersion="$VERSION" --no-daemon --console=plain
+        ls -la output
+        echo "PLUGIN_VERSION=$VERSION" >> "$BUDDY_VAR"
+    - action: "Publish artifact version"
+      type: "PUBLISH_ARTIFACT_VERSION"
+      # Create this artifact in Buddy first (Artifacts)
+      artifact: "rider-tests-support-plus"
+      versions:
+        - "$PLUGIN_VERSION"
+      input_type: "BUILD_ARTIFACTS"
+      local_path: "/output"
+      deployment_includes:
+        - "*.zip"
