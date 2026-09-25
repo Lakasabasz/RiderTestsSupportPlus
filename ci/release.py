@@ -4,6 +4,7 @@
   release.py check          validate the input and print the new version, change nothing
   release.py update         add the new version to CHANGELOG.md and gradle.properties
   release.py check-artifact the downloaded artifact is the release build, get its version
+  release.py upload-marketplace  upload the downloaded plugin zip to JetBrains Marketplace
 
 check / update read (environment):
   INCREMENT     Major | Minor | Patch, applied to the newest version in CHANGELOG.md;
@@ -17,6 +18,9 @@ Otherwise at least one of NEW_FEATURES, IMPROVEMENTS and BUGS must have an entry
 check-artifact reads RELEASE_VERSION (MAJOR.MINOR.PATCH) and expects the zip and nupkg of one build
 MAJOR.MINOR.PATCH.<build run id> in release/.
 
+upload-marketplace reads ARTIFACT_VERSION and MARKETPLACE_TOKEN (a permanent token from My Tokens in the
+Marketplace profile); optional MARKETPLACE_CHANNEL (default Stable) and MARKETPLACE_URL.
+
 update and check-artifact append their results (RELEASE_VERSION, RELEASE_NOTES, ARTIFACT_VERSION)
 to the file in $BUDDY_VAR, which passes them to the next actions, one KEY=VALUE per line.
 """
@@ -24,6 +28,8 @@ import html
 import os
 import re
 import sys
+import urllib.request
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -176,8 +182,43 @@ def check_artifact():
     export(ARTIFACT_VERSION=found)
 
 
+def upload_marketplace():
+    version = os.environ.get("ARTIFACT_VERSION", "")
+    token = os.environ.get("MARKETPLACE_TOKEN", "")
+    if not version:
+        fail("ARTIFACT_VERSION is not set")
+    if not token:
+        fail("MARKETPLACE_TOKEN is not set")
+    plugin = RELEASE_DIR / f"ReSharperPlugin.RiderTestsSupportPlus-{version}.zip"
+    if not plugin.is_file():
+        fail(f"{plugin} not found")
+    xml_id = re.search(r"^RiderPluginId=(.+)$", GRADLE_PROPERTIES.read_text(encoding="utf-8"), re.MULTILINE).group(1).strip()
+    fields = {"xmlId": xml_id}
+    if os.environ.get("MARKETPLACE_CHANNEL"):
+        fields["channel"] = os.environ["MARKETPLACE_CHANNEL"]
+
+    # multipart/form-data by hand, the standard library has no encoder
+    boundary = uuid.uuid4().hex
+    body = b"".join(
+        f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode() for k, v in fields.items())
+    body += (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{plugin.name}"\r\n'
+             "Content-Type: application/zip\r\n\r\n").encode() + plugin.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
+
+    url = os.environ.get("MARKETPLACE_URL", "https://plugins.jetbrains.com/api/updates/upload")
+    request = urllib.request.Request(url, data=body, method="POST", headers={
+        "Authorization": f"Bearer {token}", "Content-Type": f"multipart/form-data; boundary={boundary}"})
+    print(f"Uploading {plugin.name} ({xml_id}) to {url}")
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response:
+            print(f"HTTP {response.status}: {response.read().decode(errors='replace')[:2000]}")
+    except urllib.error.HTTPError as e:
+        fail(f"upload failed, HTTP {e.code}: {e.read().decode(errors='replace')[:2000]}")
+    except Exception as e:
+        fail(f"upload failed: {e}")
+
+
 if __name__ == "__main__":
-    steps = {"check": check, "update": update, "check-artifact": check_artifact}
+    steps = {"check": check, "update": update, "check-artifact": check_artifact, "upload-marketplace": upload_marketplace}
     if len(sys.argv) != 2 or sys.argv[1] not in steps:
         fail("usage: release.py " + " | ".join(steps))
     steps[sys.argv[1]]()

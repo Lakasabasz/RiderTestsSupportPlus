@@ -74,3 +74,15 @@
       label: ReSharperPlugin.RiderTestsSupportPlus-$ARTIFACT_VERSION.zip
     - source_path: release/ReSharperPlugin.RiderTestsSupportPlus.$ARTIFACT_VERSION.nupkg
       label: ReSharperPlugin.RiderTestsSupportPlus.$ARTIFACT_VERSION.nupkg
+  # Uploads the release zip to JetBrains Marketplace (it goes to moderation). Needs the encrypted variable
+  # MARKETPLACE_TOKEN (Marketplace profile > My Tokens); enable the action once it's set.
+  - action: Upload to JetBrains Marketplace
+    type: BUILD
+    disabled: true
+    commands: |-
+      python3 ci/release.py upload-marketplace
+    shell: BASH
+    image_location: PUBLIC_REGISTRY
+    docker_registry: DOCKER_HUB
+    docker_image_name: library/python
+    docker_image_tag: 3.13-slim
