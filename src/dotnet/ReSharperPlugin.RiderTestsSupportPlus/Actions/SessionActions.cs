@@ -19,7 +19,7 @@ namespace ReSharperPlugin.RiderTestsSupportPlus.Actions;
 
 // Action ids are referenced by the frontend proxies in src/rider/main/kotlin, keep them in sync.
 
-[Action(Id, "Save Session (Tests Support Plus)…")]
+[Action(typeof(ActionStrings), nameof(ActionStrings.SaveSessionActionText), ActionId = Id)]
 public class SaveSessionAction : IExecutableAction
 {
   public const string Id = "RiderTestsSupportPlus.SaveSession";
@@ -58,7 +58,7 @@ public class SaveSessionAction : IExecutableAction
     context.GetData(UnitTestDataConstants.Session.IN_CONTEXT) ?? context.GetData(UnitTestDataConstants.Session.CURRENT);
 }
 
-[Action(Id, "Load Session (Tests Support Plus)…")]
+[Action(typeof(ActionStrings), nameof(ActionStrings.LoadSessionActionText), ActionId = Id)]
 public class LoadSessionAction : IExecutableAction
 {
   public const string Id = "RiderTestsSupportPlus.LoadSession";
@@ -82,7 +82,7 @@ public class LoadSessionAction : IExecutableAction
   }
 }
 
-[Action(Id, "Import Session from .runsettings…")]
+[Action(typeof(ActionStrings), nameof(ActionStrings.ImportRunSettingsActionText), ActionId = Id)]
 public class ImportRunSettingsAction : IExecutableAction
 {
   public const string Id = "RiderTestsSupportPlus.ImportRunSettings";

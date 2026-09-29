@@ -1,12 +1,25 @@
 package pl.info.lukaszm.testssupportplus.test
 
+import com.intellij.ide.DataManager
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.fileChooser.FileChooserDescriptor
+import com.intellij.openapi.fileChooser.FileChooserDialog
+import com.intellij.openapi.fileChooser.FileChooserFactory
+import com.intellij.openapi.fileChooser.FileSaverDescriptor
+import com.intellij.openapi.fileChooser.FileSaverDialog
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Disposer
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.VirtualFileWrapper
+import com.intellij.testFramework.replaceService
+import com.jetbrains.rd.framework.IRdCall
 import com.jetbrains.rd.ide.model.SaveSessionRequest
 import com.jetbrains.rd.ide.model.SessionReport
 import com.jetbrains.rd.ide.model.riderTestsSupportPlusModel
 import com.jetbrains.rd.util.lifetime.Lifetime
-import com.jetbrains.rd.framework.IRdCall
 import com.jetbrains.rdclient.util.idea.waitAndPump
 import com.jetbrains.rider.projectView.solution
 import com.jetbrains.rider.test.annotations.Solution
@@ -15,6 +28,7 @@ import com.jetbrains.rider.test.enums.BuildTool
 import com.jetbrains.rider.test.enums.sdk.SdkVersion
 import com.jetbrains.rider.test.junit5.base.PerClassSolutionTestBase
 import com.jetbrains.rider.test.scriptingApi.createUtFacade
+import com.jetbrains.rider.test.scriptingApi.executeAction
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.MethodOrderer
@@ -22,9 +36,11 @@ import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestMethodOrder
+import java.awt.Component
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+import javax.swing.JTextField
 
 /**
  * End-to-end in a headless Rider with the backend: the sample NUnit solution is built, explored,
@@ -208,7 +224,71 @@ class SessionFlowsTest : PerClassSolutionTestBase() {
         assertTrue(error?.message?.contains("use Import Session from .runsettings") == true, "load error: $error")
     }
 
+    @Test
+    @Order(8)
+    fun frontendActionsRunTheirBackendActions() {
+        prepare()
+        // The proxies forward execution to the backend action with the id they name (their update is frontend-only),
+        // so run each one and check the backend asked for its file; the dialog is cancelled, nothing else happens.
+        // Save needs a session: open one and activate its tab, so the data context is the Unit Tests window's.
+        call(model().loadSession, sessionFile(Triple("$ns.Plain.Simple", null, null), name = "Actions").toString())
+        val ut = createUtFacade(project)
+        val titles = mutableListOf<String>()
+        val disposable = Disposer.newDisposable()
+        try {
+            ut.activateSession(ut.waitForAnySession(Duration.ofSeconds(60)))
+            ApplicationManager.getApplication().replaceService(FileChooserFactory::class.java,
+                CancellingFileChooserFactory(FileChooserFactory.getInstance()) { titles += it }, disposable)
+            for ((id, title) in listOf(
+                "SaveSession" to "Save Test Session",
+                "LoadSession" to "Load Test Session",
+                "ImportRunSettings" to "Import Tests from Run Settings",
+            )) {
+                titles.clear()
+                executeAction("RiderTestsSupportPlus.Frontend.$id", DataManager.getInstance().dataContext)
+                waitAndPump(Duration.ofSeconds(30), { titles.isNotEmpty() }, { "$id did not reach its backend action" })
+                assertEquals(listOf(title), titles, id)
+            }
+        } finally {
+            Disposer.dispose(disposable)
+            ut.close()
+        }
+    }
+
     private companion object {
         var prepared = false
+    }
+
+    /** Records the title of every file dialog and cancels it. */
+    private class CancellingFileChooserFactory(
+        private val original: FileChooserFactory,
+        private val onDialog: (String) -> Unit,
+    ) : FileChooserFactory() {
+        override fun createFileChooser(descriptor: FileChooserDescriptor, project: Project?, parent: Component?) =
+            FileChooserDialog { _, _ -> onDialog(descriptor.title); emptyArray() }
+
+        override fun createSaveFileDialog(descriptor: FileSaverDescriptor, project: Project?) = cancelledSave(descriptor)
+        override fun createSaveFileDialog(descriptor: FileSaverDescriptor, parent: Component) = cancelledSave(descriptor)
+
+        private fun cancelledSave(descriptor: FileSaverDescriptor) = object : FileSaverDialog {
+            override fun save(baseDir: VirtualFile?, filename: String?): VirtualFileWrapper? {
+                onDialog(descriptor.title)
+                return null
+            }
+
+            override fun save(baseDir: Path?, filename: String?): VirtualFileWrapper? {
+                onDialog(descriptor.title)
+                return null
+            }
+        }
+
+        override fun createPathChooser(descriptor: FileChooserDescriptor, project: Project?, parent: Component?) =
+            original.createPathChooser(descriptor, project, parent)
+
+        override fun createFileTextField(descriptor: FileChooserDescriptor, showHidden: Boolean, parent: Disposable?) =
+            original.createFileTextField(descriptor, showHidden, parent)
+
+        override fun installFileCompletion(field: JTextField, descriptor: FileChooserDescriptor, showHidden: Boolean, parent: Disposable?) =
+            original.installFileCompletion(field, descriptor, showHidden, parent)
     }
 }

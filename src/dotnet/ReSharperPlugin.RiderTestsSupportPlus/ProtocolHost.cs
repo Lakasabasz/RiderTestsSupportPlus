@@ -1,7 +1,6 @@
 #if RIDER
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using JetBrains.Application.Parts;
 using JetBrains.Lifetimes;
 using JetBrains.ProjectModel;
@@ -23,7 +22,7 @@ public class ProtocolHost
   {
     var model = solution.GetProtocolSolution().GetRiderTestsSupportPlusModel();
 
-    model.SaveSession.Set((_, request) =>
+    model.SaveSession.SetSync((_, request) =>
     {
       var manager = solution.GetComponent<IUnitTestSessionManager>();
       // The backend's active session follows the frontend's tab activation, which is asynchronous.
@@ -31,26 +30,16 @@ public class ProtocolHost
         ? manager.ActiveSession
         : manager.Sessions.LastOrDefault(s => s.Name.Value == request.SessionName);
       if (session == null)
-        return RdTask.Faulted<int>(new InvalidOperationException($"No unit test session '{request.SessionName ?? "(active)"}'."));
+        throw new InvalidOperationException($"No unit test session '{request.SessionName ?? "(active)"}'.");
       var file = SessionFile.From(session);
       file.Save(request.Path);
-      return RdTask.Successful(file.Tests.Count);
+      return file.Tests.Count;
     });
 
-    model.LoadSession.Set((_, path) => ToRdTask(SessionFile.LoadAsync(solution, FileSystemPath.Parse(path))));
-    model.ImportRunSettings.Set((_, path) => ToRdTask(RunSettingsImporter.ImportAsync(solution, FileSystemPath.Parse(path))));
-  }
-
-  private static RdTask<SessionReport> ToRdTask(Task<SessionOpenResult> task)
-  {
-    var result = new RdTask<SessionReport>();
-    task.ContinueWith(t =>
-    {
-      if (t.IsFaulted) result.Set(t.Exception!.GetBaseException());
-      else if (t.IsCanceled) result.SetCancelled();
-      else result.Set(ToReport(t.Result));
-    }, TaskContinuationOptions.ExecuteSynchronously);
-    return result;
+    model.LoadSession.SetAsync(async (_, path) =>
+      ToReport(await SessionFile.LoadAsync(solution, FileSystemPath.Parse(path)).ConfigureAwait(false)));
+    model.ImportRunSettings.SetAsync(async (_, path) =>
+      ToReport(await RunSettingsImporter.ImportAsync(solution, FileSystemPath.Parse(path)).ConfigureAwait(false)));
   }
 
   private static SessionReport ToReport(SessionOpenResult result) => new(
