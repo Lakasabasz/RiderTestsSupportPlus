@@ -75,10 +75,14 @@
     - source_path: release/ReSharperPlugin.RiderTestsSupportPlus.$ARTIFACT_VERSION.nupkg
       label: ReSharperPlugin.RiderTestsSupportPlus.$ARTIFACT_VERSION.nupkg
   # Uploads the release zip to JetBrains Marketplace (it goes to moderation). Needs the encrypted variable
-  # MARKETPLACE_TOKEN (Marketplace profile > My Tokens); enable the action once it's set.
+  # MARKETPLACE_TOKEN (Marketplace profile > My Tokens). Skipped on INCREMENT None: Marketplace rejects a version
+  # it already has, so after a failed upload re-run only this action.
   - action: Upload to JetBrains Marketplace
     type: BUILD
-    disabled: true
+    trigger_conditions:
+    - trigger_condition: VAR_IS_NOT
+      trigger_variable_value: None
+      trigger_variable_key: INCREMENT
     commands: |-
       python3 ci/release.py upload-marketplace
     shell: BASH
