@@ -136,6 +136,12 @@ Sprawdzone w zdekompilowanym SDK 2026.2.2 i na przykładowym projekcie NUnit 4.
   testów, tak jak testhost). Tylko eksploracja: nic się nie wykonuje i nic nie jest zapisywane obok testów.
   Gdy są oba filtry, adapter stosuje `TestCaseFilter` i ignoruje `Where`, więc wtyczka robi tak samo.
   Zgodność z prawdziwym przebiegiem sprawdzona na próbce. Na BuddyTests: 80 testów w ~11 s.
+- **Provider VSTest ma inne `TestId` (ustalone 2026-10-27, Rider 2026.2).** Przy wyłączonym wbudowanym providerze
+  NUnit (`UnitTestingSettings.DisabledProviders` → `NUnit3x`, obejście RIDER-131305: test parametryzowany pod
+  parametryzowanym fixture'em z jedną metodą odpala wszystkie case'y metody) i adapterze NUnit zdjętym z listy
+  ignorowanych VSTest (`VsTestElementFactory`, `VsTestTestCaseMapping`) test ma `executor://nunit3testexecutor/::<FQN>`,
+  a metoda, fixture i klasa `executor://nunit3testexecutor/#<nazwa>`. URI jest małymi literami, bo normalizuje je `Uri`.
+  `TestElementResolver` próbuje formy drugiego providera, gdy własna nie trafia (`VsTestIds`).
 - **Odpowiedzi na otwarte pytania (przyjęte na start):** NUnit 3/4, `.runsettings` = `TestCaseFilter` lub `<NUnit><Where>`
   (bez `.playlist`), format sesji = JSON (Newtonsoft jest w Riderze), rozszerzenie `.rtsession`.
 

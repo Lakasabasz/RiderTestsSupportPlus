@@ -39,7 +39,13 @@ public sealed class TestResolution
     Element == null
       ? null
       : new UnitTestElementId(Element.NaturalId.ProjectId, Element.NaturalId.TargetFrameworkId, Element.NaturalId.ProviderId,
-        Request.TestId, Request.Salt);
+        ExpectedTestId, Request.Salt);
+
+  // The ancestor may come from the other provider than the request (see TestElementResolver.FindInOtherProvider)
+  private string ExpectedTestId =>
+    Element.NaturalId.ProviderId == VsTestIds.ProviderId
+      ? VsTestIds.Test(Request.TestId)
+      : VsTestIds.ToFrameworkId(Request.TestId);
 }
 
 public sealed class TestResolutionResult

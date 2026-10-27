@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
@@ -13,7 +14,8 @@ namespace ReSharperPlugin.RiderTestsSupportPlus.Resolution;
 /// Matching is by <c>UnitTestElementId.TestId</c>, which for NUnit is exactly the adapter's FullyQualifiedName
 /// (<c>Ns.TestClass(A).TestName(X)</c>); project and target framework only narrow the result. This is what makes
 /// saved sessions survive a changed project GUID or target framework, unlike the built-in session import,
-/// which requires the whole natural id to match.
+/// which requires the whole natural id to match. With the VSTest provider the id is the same name prefixed with
+/// the executor URI (<see cref="VsTestIds"/>), so a request resolves under either provider.
 /// </summary>
 public sealed class TestElementResolver
 {
@@ -34,13 +36,13 @@ public sealed class TestElementResolver
 
   private TestResolution ResolveOne(TestRequest request)
   {
-    var element = Find(request, request.TestId);
+    var element = Find(request, request.TestId, request.ProviderId) ?? FindInOtherProvider(request, request.TestId, VsTestIds.Test);
     if (element != null)
       return new TestResolution(request, TestResolutionKind.Exact, element);
 
     foreach (var ancestorId in request.AncestorIds)
     {
-      var ancestor = Find(request, ancestorId);
+      var ancestor = Find(request, ancestorId, request.ProviderId) ?? FindInOtherProvider(request, ancestorId, VsTestIds.Container);
       if (ancestor != null)
         return new TestResolution(request, TestResolutionKind.Ancestor, ancestor);
     }
@@ -48,26 +50,43 @@ public sealed class TestElementResolver
     return new TestResolution(request, TestResolutionKind.Unresolved, null);
   }
 
+  /// <summary>
+  /// The same test under the other provider's id: the built-in NUnit provider uses the adapter's FullyQualifiedName,
+  /// the VSTest provider prefixes it with the executor URI. A session saved or listed with one provider
+  /// thus still resolves after switching to the other.
+  /// </summary>
   [CanBeNull]
-  private IUnitTestElement Find(TestRequest request, string testId)
+  private IUnitTestElement FindInOtherProvider(TestRequest request, string testId, Func<string, string> toVsTestId)
   {
-    if (request.ProjectId != null && request.TargetFrameworkId != null && request.ProviderId != null)
+    var vsTestId = toVsTestId(testId);
+    if (!VsTestIds.IsVsTestId(testId))
+      return Find(request, vsTestId, VsTestIds.ProviderId);
+
+    // Ancestors of a VSTest test id carry the test's separator, containers have their own
+    return Find(request, VsTestIds.ToFrameworkId(testId), null)
+           ?? (vsTestId != testId ? Find(request, vsTestId, VsTestIds.ProviderId) : null);
+  }
+
+  [CanBeNull]
+  private IUnitTestElement Find(TestRequest request, string testId, [CanBeNull] string providerId)
+  {
+    if (request.ProjectId != null && request.TargetFrameworkId != null && providerId != null)
     {
       var exact = myRepository.GetBy(new UnitTestElementId(request.ProjectId, request.TargetFrameworkId,
-        request.ProviderId, testId, testId == request.TestId ? request.Salt : null));
+        providerId, testId, testId == request.TestId ? request.Salt : null));
       if (exact != null)
         return exact;
     }
 
     return myRepository.Query(new TestIdCriterion(testId))
-      .Where(x => IsCandidate(request, x))
+      .Where(x => IsCandidate(request, x, providerId))
       .OrderByDescending(x => Score(request, x))
       .FirstOrDefault();
   }
 
-  private static bool IsCandidate(TestRequest request, IUnitTestElement element)
+  private static bool IsCandidate(TestRequest request, IUnitTestElement element, [CanBeNull] string providerId)
   {
-    if (request.ProviderId != null && element.NaturalId.ProviderId != request.ProviderId)
+    if (providerId != null && element.NaturalId.ProviderId != providerId)
       return false;
 
     // A test with the same name in a different project is a different test.
