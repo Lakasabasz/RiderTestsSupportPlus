@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## 0.6.0
+### New Features
+- Tools for AI agents in Rider's MCP Server: create, update, delete and save Unit Tests sessions and see how Rider discovers the tests (test_session_*, test_discovery_info)
+- Every tool answer carries error codes and ready-made next calls: corrected test ids, a build when a test assembly is missing or older than its sources, settings only the user can change
+- Agents change and delete only the sessions they created, unless allowed to change the user's session
+### Improvements
+- Import Session from .runsettings warns when a test assembly is older than its sources
+### Bugs
+- NUnit tests without arguments resolve under the VSTest provider (built-in NUnit provider disabled) instead of being replaced by their whole class
+
 ## 0.5.0
 ### New Features
 - Tests resolve when Rider runs NUnit tests through the VSTest provider (built-in NUnit provider disabled, e.g. as a workaround for RIDER-131305): Import Session from .runsettings and Load Session find them, and sessions saved with either provider load under the other
