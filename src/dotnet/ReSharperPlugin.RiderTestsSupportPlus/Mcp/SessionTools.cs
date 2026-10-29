@@ -547,8 +547,28 @@ public sealed class SessionTools
 
   #region Resolution and reporting
 
-  private Task<ResolveOutcome> ResolveAsync(IReadOnlyList<TestRequest> requests) =>
-    Locked(() => SessionOpener.ResolveAsync(mySolution, requests, RescanTimeout)).Unwrap();
+  private async Task<ResolveOutcome> ResolveAsync(IReadOnlyList<TestRequest> requests)
+  {
+    var outcome = await Locked(() => SessionOpener.ResolveAsync(mySolution, requests, RescanTimeout)).Unwrap();
+    return await Locked(() => WithoutMisspelledFallbacks(outcome));
+  }
+
+  /// <summary>
+  /// A misspelled id (ParamFixture(A) for ParamFixture("A"), wrong case) still finds its class, but the parent fallback is for
+  /// tests Rider has not discovered yet: an agent's typo must not pull a whole class into the session. Such requests stay
+  /// unresolved, with 'didYouMean' and a corrected call.
+  /// </summary>
+  private ResolveOutcome WithoutMisspelledFallbacks(ResolveOutcome outcome)
+  {
+    if (!outcome.Result.Ancestors.Any())
+      return outcome;
+
+    var similar = SimilarTests.InRepository(mySolution.GetComponent<IUnitTestElementRepository>());
+    var items = outcome.Result.Items.Select(x => x.Kind == TestResolutionKind.Ancestor && similar.Meant(x.Request.TestId).Count > 0
+      ? new TestResolution(x.Request, TestResolutionKind.Unresolved, null)
+      : x).ToList();
+    return new ResolveOutcome(new TestResolutionResult(items), outcome.Rescanned, outcome.RescanTimedOut);
+  }
 
   private List<TestRequest> Requests(List<string> ids, [CanBeNull] string project, string argument)
   {
@@ -570,10 +590,7 @@ public sealed class SessionTools
     var ancestors = result.Ancestors.ToList();
     var unresolved = result.Unresolved.ToList();
 
-    // A typo in an argument (ParamFixture(A) for ParamFixture("A")) still finds the class, so replaced tests get hints too
-    var similar = unresolved.Count > 0 || ancestors.Count > 0
-      ? SimilarTests.InRepository(mySolution.GetComponent<IUnitTestElementRepository>())
-      : null;
+    var similar = unresolved.Count > 0 ? SimilarTests.InRepository(mySolution.GetComponent<IUnitTestElementRepository>()) : null;
     var unresolvedReport = unresolved.Take(MaxListed).Select(x =>
     {
       var meant = similar!.Meant(x.Request.TestId);
@@ -585,16 +602,9 @@ public sealed class SessionTools
         sameName = meant.Count == 0 ? similar.SameName(x.Request.TestId) : null
       };
     }).ToList();
-    var replacedReport = ancestors.Take(MaxListed).Select(x => new
-    {
-      test = x.Request.TestId,
-      addedInstead = x.Element.NaturalId.TestId,
-      didYouMean = similar!.Meant(x.Request.TestId) is { Count: > 0 } ids ? ids : null
-    }).ToList();
+    var replacedReport = ancestors.Take(MaxListed).Select(x => new { test = x.Request.TestId, addedInstead = x.Element.NaturalId.TestId }).ToList();
 
-    var corrections = unresolvedReport.Where(x => x.didYouMean.Count > 0).Select(x => (x.test, meant: x.didYouMean[0]))
-      .Concat(replacedReport.Where(x => x.didYouMean != null).Select(x => (x.test, meant: x.didYouMean[0])))
-      .ToList();
+    var corrections = unresolvedReport.Where(x => x.didYouMean.Count > 0).Select(x => (x.test, meant: x.didYouMean[0])).ToList();
     var correctedCall = argument != null && corrections.Count > 0
       ? Suggestion.Call(myTool, WithArgument(argument,
           Texts(argument)!.Select(id => corrections.FirstOrDefault(c => c.test == id).meant ?? id).ToList(), RetryArguments()),
@@ -603,22 +613,17 @@ public sealed class SessionTools
 
     if (ancestors.Count > 0)
     {
-      var typos = replacedReport.Count(x => x.didYouMean != null);
       myResponse.Warn(ProblemCodes.TestsReplacedByParent,
         $"{Tests(ancestors.Count)} not in Rider's test model yet, their parent (method or class) was added instead and runs all of its children. " +
-        (typos > 0
-          ? $"{Tests(typos)} found under a different id, see 'didYouMean' in 'resolution.replacedTests' (a misspelling, " +
-            "or Rider's id of the test differs in form); the corrected call adds them exactly. "
-          : "") +
         "The tests join the session by themselves once Rider discovers them, usually after a build or a run.",
-        new[] { correctedCall, Suggestion.Call(Discovery, null, "explains when Rider discovers tests with the current settings") }
-          .Where(x => x != null).ToArray());
+        Suggestion.Call(Discovery, null, "explains when Rider discovers tests with the current settings"));
     }
 
     if (unresolved.Count > 0)
     {
       myResponse.Warn(ProblemCodes.TestsUnresolved,
-        $"{Tests(unresolved.Count)} not found in Rider's test model, see 'resolution.unresolvedTests' for similar ids.",
+        $"{Tests(unresolved.Count)} not found in Rider's test model, see 'unresolvedTests' for similar ids " +
+        "('didYouMean': the same test spelled differently, used by the corrected call).",
         new[] { correctedCall, Suggestion.Call(Discovery, null, "shows which projects Rider discovered tests in and how") }
           .Where(x => x != null).ToArray());
     }
@@ -819,6 +824,10 @@ public sealed class SessionTools
   private JObject WithArgument([CanBeNull] string name, [CanBeNull] object value, params (string Name, object Value)[] others)
   {
     var arguments = (JObject)myArguments.DeepClone();
+    // Arguments left at their defaults only clutter a suggested call
+    foreach (var unset in arguments.Properties().Where(x => x.Value.Type == JTokenType.Null ||
+                                                             x.Value.Type == JTokenType.Boolean && !x.Value.Value<bool>()).ToList())
+      unset.Remove();
     if (name != null && value == null)
       arguments.Remove(name);
     else if (name != null)

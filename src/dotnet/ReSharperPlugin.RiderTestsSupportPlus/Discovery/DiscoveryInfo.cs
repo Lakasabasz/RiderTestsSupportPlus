@@ -152,7 +152,8 @@ public sealed class DiscoveryInfo
 
     foreach (var target in Projects.Where(p => p.Tests == 0 && p.NUnitAdapter && p.Build.State != nameof(BuildOutputState.Missing)))
       yield return $"{target.Project} ({target.TargetFramework}): NUnit3TestAdapter is next to the assembly, but Rider has discovered " +
-                   "no tests: wait for discovery to finish, rebuild, or check the providers above.";
+                   "no tests. Fine for a library that only references the test packages; if the project has tests, wait for " +
+                   "discovery to finish, rebuild, or check the providers above.";
 
     if (!string.IsNullOrEmpty(s.DefaultRunSettingsFile))
       yield return $"Rider runs tests with the run settings {s.DefaultRunSettingsFile} (Unit Testing | Test Runner): its TestCaseFilter " +

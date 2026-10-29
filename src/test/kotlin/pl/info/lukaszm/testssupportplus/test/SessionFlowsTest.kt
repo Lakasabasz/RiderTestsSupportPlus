@@ -315,15 +315,17 @@ class SessionFlowsTest : PluginSolutionTest() {
     @Order(12)
     fun mcpSuggestsTheIdThatWasMeant() {
         prepare()
-        // Unquoted string argument (still finds the class, which replaces it) and wrong case: suggested back, with a corrected call
+        // Unquoted string argument and wrong case: not replaced by their class (the tests exist, the ids are misspelled),
+        // but suggested back, with a corrected call
         val answer = mcp("test_session_create", "name" to "Agent typo",
             "tests" to listOf("$ns.ParamFixture(A).Method(1)", "$ns.plain.simple", "$ns.Plain.Simple"))
         assertEquals("partial", answer.status(), answer.toString())
-        assertTrue(answer.warningCodes().containsAll(listOf("TESTS_UNRESOLVED", "TESTS_REPLACED_BY_PARENT")), answer.toString())
-        fun meant(list: String) = answer.at("result", "resolution", list).jsonArray
-            .associate { it.text("test") to it.jsonObject["didYouMean"]?.jsonArray?.map { x -> x.jsonPrimitive.content } }
-        assertEquals(listOf("$ns.ParamFixture(\"A\").Method(1)"), meant("replacedTests")["$ns.ParamFixture(A).Method(1)"], answer.toString())
-        assertEquals(listOf("$ns.Plain.Simple"), meant("unresolvedTests")["$ns.plain.simple"], answer.toString())
+        assertEquals(listOf("TESTS_UNRESOLVED"), answer.warningCodes(), answer.toString())
+        assertEquals(1, answer.at("result", "resolution", "resolved").jsonPrimitive.int, answer.toString())
+        val meant = answer.at("result", "resolution", "unresolvedTests").jsonArray
+            .associate { it.text("test") to it.at("didYouMean").jsonArray.map { x -> x.jsonPrimitive.content } }
+        assertEquals(listOf("$ns.ParamFixture(\"A\").Method(1)"), meant["$ns.ParamFixture(A).Method(1)"], answer.toString())
+        assertEquals(listOf("$ns.Plain.Simple"), meant["$ns.plain.simple"], answer.toString())
         // Repeating create replaces the session it has just created instead of failing on the name
         val retry = answer["suggestions"]!!.jsonArray.first { it.jsonObject["tool"]?.jsonPrimitive?.content == "test_session_create" }
         assertEquals(listOf("$ns.ParamFixture(\"A\").Method(1)", "$ns.Plain.Simple", "$ns.Plain.Simple"),

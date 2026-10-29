@@ -92,13 +92,13 @@ $TEST_IDS $ANSWER""")
         @McpDescription("Allow replacing a session the user created (not an agent). Only when the user asked for it")
         allowUserSession: Boolean = false,
     ): McpToolCallResult = call("test_session_create") {
-        put("name", name)
+        putIfSet("name", name)
         putList("tests", tests)
-        put("runSettingsPath", runSettingsPath)
-        put("sessionFilePath", sessionFilePath)
-        put("project", project)
-        put("ifExists", ifExists)
-        put("allowUserSession", allowUserSession)
+        putIfSet("runSettingsPath", runSettingsPath)
+        putIfSet("sessionFilePath", sessionFilePath)
+        putIfSet("project", project)
+        putIfSet("ifExists", ifExists)
+        putIfSet("allowUserSession", allowUserSession)
     }
 
     @McpTool(name = "test_session_update")
@@ -123,13 +123,13 @@ Running or locked sessions cannot be changed. $TEST_IDS $ANSWER""")
         @McpDescription("Allow changing a session the user created (not an agent). Only when the user asked for it")
         allowUserSession: Boolean = false,
     ): McpToolCallResult = call("test_session_update") {
-        put("session", session)
+        putIfSet("session", session)
         putList("tests", tests)
         putList("addTests", addTests)
         putList("removeTests", removeTests)
-        put("name", name)
-        put("project", project)
-        put("allowUserSession", allowUserSession)
+        putIfSet("name", name)
+        putIfSet("project", project)
+        putIfSet("allowUserSession", allowUserSession)
     }
 
     @McpTool(name = "test_session_delete")
@@ -143,8 +143,8 @@ A running session cannot be deleted. $ANSWER""")
         @McpDescription("Allow deleting a session the user created (not an agent). Only when the user asked for it")
         allowUserSession: Boolean = false,
     ): McpToolCallResult = call("test_session_delete") {
-        put("session", session)
-        put("allowUserSession", allowUserSession)
+        putIfSet("session", session)
+        putIfSet("allowUserSession", allowUserSession)
     }
 
     @McpTool(name = "test_session_save")
@@ -159,9 +159,9 @@ Unit Tests window load again, resolving the tests by name. $ANSWER""")
         @McpDescription("Replace the file if it exists")
         overwrite: Boolean = false,
     ): McpToolCallResult = call("test_session_save") {
-        put("session", session)
-        put("path", path)
-        put("overwrite", overwrite)
+        putIfSet("session", session)
+        putIfSet("path", path)
+        putIfSet("overwrite", overwrite)
     }
 
     @McpTool(name = "test_discovery_info")
@@ -175,7 +175,7 @@ $ANSWER""")
     suspend fun test_discovery_info(
         @McpDescription("Only this project (its name in the solution); all test projects when omitted")
         project: String? = null,
-    ): McpToolCallResult = call("test_discovery_info") { put("project", project) }
+    ): McpToolCallResult = call("test_discovery_info") { putIfSet("project", project) }
 
     private suspend fun call(tool: String, arguments: JsonObjectBuilder.() -> Unit): McpToolCallResult {
         val project = currentCoroutineContext().project
@@ -190,7 +190,7 @@ $ANSWER""")
                 put("status", "failed")
                 put("error", buildJsonObject {
                     put("code", "BACKEND_UNAVAILABLE")
-                    put("message", message)
+                    putIfSet("message", message)
                 })
             }.toString())
         }
@@ -206,6 +206,15 @@ $ANSWER""")
                 project.solution.riderTestsSupportPlusModel.mcpTool.startSuspending(McpToolRequest(tool, arguments.toString()))
             }
     }
+}
+
+// Arguments the agent left out are not sent, so the backend's suggested calls repeat only what was given
+private fun JsonObjectBuilder.putIfSet(key: String, value: String?) {
+    if (value != null) put(key, value)
+}
+
+private fun JsonObjectBuilder.putIfSet(key: String, value: Boolean) {
+    if (value) put(key, true)
 }
 
 private fun JsonObjectBuilder.putList(key: String, values: List<String>?) {
