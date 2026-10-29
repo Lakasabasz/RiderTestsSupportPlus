@@ -155,6 +155,8 @@ dependencies {
         bundledModule("intellij.rider")
         bundledModule("intellij.rider.rdclient.dotnet")
         bundledModule("intellij.rd.client")
+        // MCP tools (optional dependency, see testssupportplus-mcp.xml)
+        bundledPlugin("com.intellij.mcpServer")
 
         // Rider integration test framework (headless Rider with backend and a real solution)
         bundledLibrary(provider {

@@ -21,7 +21,8 @@ import kotlin.jvm.JvmStatic
 class RiderTestsSupportPlusModel private constructor(
     private val _saveSession: RdCall<SaveSessionRequest, Int>,
     private val _loadSession: RdCall<String, SessionReport>,
-    private val _importRunSettings: RdCall<String, SessionReport>
+    private val _importRunSettings: RdCall<String, SessionReport>,
+    private val _mcpTool: RdCall<McpToolRequest, String>
 ) : RdExtBase() {
     //companion
     
@@ -31,13 +32,14 @@ class RiderTestsSupportPlusModel private constructor(
             val classLoader = javaClass.classLoader
             serializers.register(LazyCompanionMarshaller(RdId(-2982540748054584809), classLoader, "com.jetbrains.rd.ide.model.SessionReport"))
             serializers.register(LazyCompanionMarshaller(RdId(-3342547550303174807), classLoader, "com.jetbrains.rd.ide.model.SaveSessionRequest"))
+            serializers.register(LazyCompanionMarshaller(RdId(-833168908592106800), classLoader, "com.jetbrains.rd.ide.model.McpToolRequest"))
         }
         
         
         
         
         
-        const val serializationHash = -4442246916081668415L
+        const val serializationHash = -1625640362991453197L
         
     }
     override val serializersOwner: ISerializersOwner get() = RiderTestsSupportPlusModel
@@ -47,12 +49,14 @@ class RiderTestsSupportPlusModel private constructor(
     val saveSession: IRdCall<SaveSessionRequest, Int> get() = _saveSession
     val loadSession: IRdCall<String, SessionReport> get() = _loadSession
     val importRunSettings: IRdCall<String, SessionReport> get() = _importRunSettings
+    val mcpTool: IRdCall<McpToolRequest, String> get() = _mcpTool
     //methods
     //initializer
     init {
         bindableChildren.add("saveSession" to _saveSession)
         bindableChildren.add("loadSession" to _loadSession)
         bindableChildren.add("importRunSettings" to _importRunSettings)
+        bindableChildren.add("mcpTool" to _mcpTool)
     }
     
     //secondary constructor
@@ -60,7 +64,8 @@ class RiderTestsSupportPlusModel private constructor(
     ) : this(
         RdCall<SaveSessionRequest, Int>(SaveSessionRequest, FrameworkMarshallers.Int),
         RdCall<String, SessionReport>(FrameworkMarshallers.String, SessionReport),
-        RdCall<String, SessionReport>(FrameworkMarshallers.String, SessionReport)
+        RdCall<String, SessionReport>(FrameworkMarshallers.String, SessionReport),
+        RdCall<McpToolRequest, String>(McpToolRequest, FrameworkMarshallers.String)
     )
     
     //equals trait
@@ -72,6 +77,7 @@ class RiderTestsSupportPlusModel private constructor(
             print("saveSession = "); _saveSession.print(printer); println()
             print("loadSession = "); _loadSession.print(printer); println()
             print("importRunSettings = "); _importRunSettings.print(printer); println()
+            print("mcpTool = "); _mcpTool.print(printer); println()
         }
         printer.print(")")
     }
@@ -80,7 +86,8 @@ class RiderTestsSupportPlusModel private constructor(
         return RiderTestsSupportPlusModel(
             _saveSession.deepClonePolymorphic(),
             _loadSession.deepClonePolymorphic(),
-            _importRunSettings.deepClonePolymorphic()
+            _importRunSettings.deepClonePolymorphic(),
+            _mcpTool.deepClonePolymorphic()
         )
     }
     //contexts
@@ -89,6 +96,75 @@ class RiderTestsSupportPlusModel private constructor(
 }
 val Solution.riderTestsSupportPlusModel get() = getOrCreateExtension("riderTestsSupportPlusModel", ::RiderTestsSupportPlusModel)
 
+
+
+/**
+ * #### Generated from [RiderTestsSupportPlusModel.kt:34]
+ */
+data class McpToolRequest (
+    val tool: String,
+    val arguments: String
+) : IPrintable {
+    //write-marshaller
+    private fun write(ctx: SerializationCtx, buffer: AbstractBuffer)  {
+        buffer.writeString(tool)
+        buffer.writeString(arguments)
+    }
+    //companion
+    
+    companion object : IMarshaller<McpToolRequest> {
+        override val _type: KClass<McpToolRequest> = McpToolRequest::class
+        override val id: RdId get() = RdId(-833168908592106800)
+        
+        @Suppress("UNCHECKED_CAST")
+        override fun read(ctx: SerializationCtx, buffer: AbstractBuffer): McpToolRequest  {
+            val tool = buffer.readString()
+            val arguments = buffer.readString()
+            return McpToolRequest(tool, arguments)
+        }
+        
+        override fun write(ctx: SerializationCtx, buffer: AbstractBuffer, value: McpToolRequest)  {
+            value.write(ctx, buffer)
+        }
+        
+        
+    }
+    //fields
+    //methods
+    //initializer
+    //secondary constructor
+    //equals trait
+    override fun equals(other: Any?): Boolean  {
+        if (this === other) return true
+        if (other == null || other::class != this::class) return false
+        
+        other as McpToolRequest
+        
+        if (tool != other.tool) return false
+        if (arguments != other.arguments) return false
+        
+        return true
+    }
+    //hash code trait
+    override fun hashCode(): Int  {
+        var __r = 0
+        __r = __r*31 + tool.hashCode()
+        __r = __r*31 + arguments.hashCode()
+        return __r
+    }
+    //pretty print
+    override fun print(printer: PrettyPrinter)  {
+        printer.println("McpToolRequest (")
+        printer.indent {
+            print("tool = "); tool.print(printer); println()
+            print("arguments = "); arguments.print(printer); println()
+        }
+        printer.print(")")
+    }
+    //deepClone
+    //contexts
+    //threading
+}
 
 
 /**

@@ -27,10 +27,22 @@ object RiderTestsSupportPlusModel : Ext(SolutionModel.Solution) {
         field("path", string)
     }
 
+    /**
+     * A call of one of the MCP tools (test_session_*, test_discovery_info). The backend owns the contract the agent sees:
+     * it reads the arguments and builds the whole answer, so the frontend only passes JSON through.
+     */
+    private val McpToolRequest = structdef {
+        field("tool", string)
+        /** JSON object with the tool's arguments. */
+        field("arguments", string)
+    }
+
     init {
         /** Returns the number of saved tests. */
         call("saveSession", SaveSessionRequest, int)
         call("loadSession", string, SessionReport)
         call("importRunSettings", string, SessionReport)
+        /** Returns the tool's answer as JSON (see Mcp/ToolResponse.cs); never fails, problems are in the answer. */
+        call("mcpTool", McpToolRequest, string)
     }
 }

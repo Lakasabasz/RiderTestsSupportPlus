@@ -9,12 +9,16 @@ using JetBrains.ReSharper.Feature.Services.Protocol;
 using JetBrains.ReSharper.UnitTestFramework.Session;
 using JetBrains.Rider.Model;
 using JetBrains.Util;
+using ReSharperPlugin.RiderTestsSupportPlus.Mcp;
 using ReSharperPlugin.RiderTestsSupportPlus.RunSettings;
 using ReSharperPlugin.RiderTestsSupportPlus.Sessions;
 
 namespace ReSharperPlugin.RiderTestsSupportPlus;
 
-/// <summary>Exposes the session flows over the protocol, without dialogs and message boxes (used by integration tests).</summary>
+/// <summary>
+/// Exposes the session flows over the protocol, without dialogs and message boxes: to the integration tests,
+/// and to the MCP tools of the frontend.
+/// </summary>
 [SolutionComponent(Instantiation.ContainerAsyncPrimaryThread)]
 public class ProtocolHost
 {
@@ -40,6 +44,8 @@ public class ProtocolHost
       ToReport(await SessionFile.LoadAsync(solution, FileSystemPath.Parse(path)).ConfigureAwait(false)));
     model.ImportRunSettings.SetAsync(async (_, path) =>
       ToReport(await RunSettingsImporter.ImportAsync(solution, FileSystemPath.Parse(path)).ConfigureAwait(false)));
+
+    model.McpTool.SetAsync((_, request) => SessionTools.HandleAsync(solution, request.Tool, request.Arguments));
   }
 
   private static SessionReport ToReport(SessionOpenResult result) => new(

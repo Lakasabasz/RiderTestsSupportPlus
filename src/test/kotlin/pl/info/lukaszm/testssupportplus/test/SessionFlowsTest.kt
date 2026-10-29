@@ -15,7 +15,10 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileWrapper
 import com.intellij.testFramework.replaceService
+import com.intellij.mcpserver.McpToolset
+import com.intellij.mcpserver.impl.ReflectionToolsProvider
 import com.jetbrains.rd.framework.IRdCall
+import com.jetbrains.rd.ide.model.McpToolRequest
 import com.jetbrains.rd.ide.model.SaveSessionRequest
 import com.jetbrains.rd.ide.model.SessionReport
 import com.jetbrains.rd.ide.model.riderTestsSupportPlusModel
@@ -36,10 +39,23 @@ import org.junit.jupiter.api.Order
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestMethodOrder
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import pl.info.lukaszm.testssupportplus.mcp.TestSessionToolset
 import java.awt.Component
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.FileTime
 import java.time.Duration
+import java.time.Instant
 import javax.swing.JTextField
 
 /**
@@ -90,6 +106,37 @@ class SessionFlowsTest : PerClassSolutionTestBase() {
     private fun json(s: String) = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
     private fun report(r: SessionReport) = "exact=${r.exact}\nancestors=${r.ancestors}\nunresolved=${r.unresolved}\nnotes=${r.notes}"
+
+    /** Calls an MCP tool on the backend, as TestSessionToolset does, and returns its answer. */
+    private fun mcp(tool: String, vararg arguments: Pair<String, Any?>): JsonObject {
+        val json = buildJsonObject {
+            for ((key, value) in arguments) put(key, when (value) {
+                null -> continue
+                is String -> JsonPrimitive(value)
+                is Boolean -> JsonPrimitive(value)
+                is List<*> -> JsonArray(value.map { JsonPrimitive(it as String) })
+                else -> error("Unsupported argument $key=$value")
+            })
+        }
+        return Json.parseToJsonElement(call(model().mcpTool, McpToolRequest(tool, json.toString()))).jsonObject
+    }
+
+    private fun JsonElement.at(vararg path: String): JsonElement = path.fold(this) { e, key -> e.jsonObject[key] ?: error("No '$key' in $e") }
+    private fun JsonElement.text(vararg path: String) = at(*path).jsonPrimitive.content
+    private fun JsonObject.status() = text("status")
+    private fun JsonObject.errorCode() = text("error", "code")
+    private fun JsonObject.warningCodes() = this["warnings"]?.jsonArray?.map { it.text("code") } ?: emptyList()
+    private fun JsonObject.suggestedTools() = this["suggestions"]?.jsonArray?.mapNotNull { it.jsonObject["tool"]?.jsonPrimitive?.content } ?: emptyList()
+
+    /** Number of tests in the session once Rider has evaluated its criterion. */
+    private fun waitForTestCount(sessionId: String, expected: Int): JsonObject {
+        var answer = mcp("test_session_get", "session" to sessionId)
+        waitAndPump(Duration.ofSeconds(60), {
+            answer = mcp("test_session_get", "session" to sessionId)
+            answer.at("result", "session", "tests").jsonPrimitive.int == expected
+        }, { "session $sessionId should have $expected tests: $answer" })
+        return answer
+    }
 
     @Test
     @Order(1)
@@ -253,6 +300,157 @@ class SessionFlowsTest : PerClassSolutionTestBase() {
             Disposer.dispose(disposable)
             ut.close()
         }
+    }
+
+    @Test
+    @Order(9)
+    fun mcpToolsAreRegistered() {
+        assertTrue(McpToolset.EP.extensionList.any { it is TestSessionToolset }, "toolset not registered")
+        val tools = ReflectionToolsProvider().getTools().associateBy { it.descriptor.name }
+        for (name in listOf("test_session_list", "test_session_get", "test_session_create", "test_session_update",
+            "test_session_delete", "test_session_save", "test_discovery_info"))
+            assertTrue(tools.containsKey(name), "$name missing in ${tools.keys}")
+
+        // The schema agents see: optional parameters are optional, list parameters are arrays
+        val create = tools.getValue("test_session_create").descriptor.inputSchema
+        assertEquals(setOf("name", "tests", "runSettingsPath", "sessionFilePath", "project", "ifExists", "allowUserSession"),
+            create.propertiesSchema.keys.intersect(setOf("name", "tests", "runSettingsPath", "sessionFilePath", "project", "ifExists", "allowUserSession")),
+            create.propertiesSchema.toString())
+        assertTrue(create.requiredProperties.none { it in create.propertiesSchema.keys - "projectPath" }, create.requiredProperties.toString())
+        assertEquals("array", create.propertiesSchema.getValue("tests").jsonObject["type"]?.jsonPrimitive?.content, create.propertiesSchema.toString())
+        assertEquals(setOf("session"), tools.getValue("test_session_update").descriptor.inputSchema.requiredProperties - "projectPath")
+    }
+
+    @Test
+    @Order(10)
+    fun mcpCreateUpdateDeleteKeepsOneSession() {
+        prepare()
+        val simple = "$ns.Plain.Simple"
+        val case1 = "$ns.ParamFixture(\"A\").Method(1)"
+        val created = mcp("test_session_create", "name" to "Agent CRUD", "tests" to listOf(simple))
+        assertEquals("ok", created.status(), created.toString())
+        val id = created.text("result", "session", "id")
+        assertEquals("true", created.text("result", "session", "ownedByAgent"), created.toString())
+        waitForTestCount(id, 1)
+
+        // The same name again: an error pointing at the existing session, nothing created
+        val duplicate = mcp("test_session_create", "name" to "Agent CRUD", "tests" to listOf(case1))
+        assertEquals("SESSION_EXISTS", duplicate.errorCode(), duplicate.toString())
+        assertTrue(duplicate.suggestedTools().contains("test_session_update"), duplicate.toString())
+
+        // Changing it in place keeps the id (and the tab)
+        val added = mcp("test_session_update", "session" to id, "addTests" to listOf(case1))
+        assertEquals("ok", added.status(), added.toString())
+        assertEquals(id, added.text("result", "session", "id"))
+        waitForTestCount(id, 2)
+
+        val removed = mcp("test_session_update", "session" to "Agent CRUD", "removeTests" to listOf(simple), "name" to "Agent CRUD 2")
+        assertEquals("ok", removed.status(), removed.toString())
+        val afterRemove = waitForTestCount(id, 1)
+        assertEquals(case1, afterRemove.at("result", "tests").jsonArray.single().text("testId"), afterRemove.toString())
+        assertEquals("Agent CRUD 2", afterRemove.text("result", "session", "name"))
+
+        val replaced = mcp("test_session_create", "name" to "Agent CRUD 2", "tests" to listOf(simple), "ifExists" to "replace")
+        assertEquals(id, replaced.text("result", "session", "id"), replaced.toString())
+        assertEquals("false", replaced.text("result", "created"))
+
+        val saved = Files.createTempFile("agent", ".rtsession")
+        val save = mcp("test_session_save", "session" to id, "path" to saved.toString(), "overwrite" to true)
+        assertEquals("ok", save.status(), save.toString())
+        assertTrue(Files.readString(saved).contains(simple.replace("\"", "\\\"")), Files.readString(saved))
+
+        val deleted = mcp("test_session_delete", "session" to id)
+        assertEquals("ok", deleted.status(), deleted.toString())
+        val list = mcp("test_session_list")
+        assertTrue(list.at("result", "sessions").jsonArray.none { it.text("id") == id }, list.toString())
+        assertEquals("SESSION_NOT_FOUND", mcp("test_session_get", "session" to id).errorCode())
+    }
+
+    @Test
+    @Order(11)
+    fun mcpProtectsTheUsersSessions() {
+        prepare()
+        // Sessions opened through the Unit Tests window belong to the user
+        call(model().loadSession, sessionFile(Triple("$ns.Plain.Simple", null, null), name = "User session").toString())
+        val denied = mcp("test_session_delete", "session" to "User session")
+        assertEquals("SESSION_NOT_OWNED", denied.errorCode(), denied.toString())
+        assertTrue(denied.suggestedTools().contains("test_session_create"), denied.toString())
+
+        val allowed = mcp("test_session_delete", "session" to "User session", "allowUserSession" to true)
+        assertEquals("ok", allowed.status(), allowed.toString())
+    }
+
+    @Test
+    @Order(12)
+    fun mcpSuggestsTheIdThatWasMeant() {
+        prepare()
+        // Unquoted string argument (still finds the class, which replaces it) and wrong case: suggested back, with a corrected call
+        val answer = mcp("test_session_create", "name" to "Agent typo",
+            "tests" to listOf("$ns.ParamFixture(A).Method(1)", "$ns.plain.simple", "$ns.Plain.Simple"))
+        assertEquals("partial", answer.status(), answer.toString())
+        assertTrue(answer.warningCodes().containsAll(listOf("TESTS_UNRESOLVED", "TESTS_REPLACED_BY_PARENT")), answer.toString())
+        fun meant(list: String) = answer.at("result", "resolution", list).jsonArray
+            .associate { it.text("test") to it.jsonObject["didYouMean"]?.jsonArray?.map { x -> x.jsonPrimitive.content } }
+        assertEquals(listOf("$ns.ParamFixture(\"A\").Method(1)"), meant("replacedTests")["$ns.ParamFixture(A).Method(1)"], answer.toString())
+        assertEquals(listOf("$ns.Plain.Simple"), meant("unresolvedTests")["$ns.plain.simple"], answer.toString())
+        // Repeating create replaces the session it has just created instead of failing on the name
+        val retry = answer["suggestions"]!!.jsonArray.first { it.jsonObject["tool"]?.jsonPrimitive?.content == "test_session_create" }
+        assertEquals(listOf("$ns.ParamFixture(\"A\").Method(1)", "$ns.Plain.Simple", "$ns.Plain.Simple"),
+            retry.at("arguments", "tests").jsonArray.map { it.jsonPrimitive.content }, retry.toString())
+        assertEquals("replace", retry.text("arguments", "ifExists"), retry.toString())
+        mcp("test_session_delete", "session" to answer.text("result", "session", "id"))
+
+        val nothing = mcp("test_session_create", "name" to "Agent none", "tests" to listOf("$ns.Nope.Missing"))
+        assertEquals("NO_TESTS_RESOLVED", nothing.errorCode(), nothing.toString())
+        assertTrue(mcp("test_session_list").at("result", "sessions").jsonArray.none { it.text("name") == "Agent none" })
+    }
+
+    @Test
+    @Order(13)
+    fun mcpCreatesFromRunSettingsAndPointsAtTheRightSource() {
+        prepare()
+        val answer = mcp("test_session_create", "runSettingsPath" to "filter.runsettings", "name" to "Agent filter")
+        assertEquals("ok", answer.status(), answer.toString())
+        assertEquals(6, answer.at("result", "resolution", "resolved").jsonPrimitive.int, answer.toString())
+        mcp("test_session_delete", "session" to answer.text("result", "session", "id"))
+
+        val session = sessionFile(Triple("$ns.Plain.Simple", null, null)).toString()
+        val wrongKind = mcp("test_session_create", "runSettingsPath" to session)
+        assertEquals("WRONG_FILE_KIND", wrongKind.errorCode(), wrongKind.toString())
+        val fix = wrongKind["suggestions"]!!.jsonArray.first().jsonObject
+        assertEquals(session, fix.text("arguments", "sessionFilePath"), wrongKind.toString())
+
+        val missing = mcp("test_session_create", "runSettingsPath" to "nope.runsettings")
+        assertEquals("FILE_NOT_FOUND", missing.errorCode(), missing.toString())
+        assertTrue(missing.toString().contains("filter.runsettings"), "should suggest the existing files: $missing")
+    }
+
+    @Test
+    @Order(14)
+    fun mcpDiscoveryInfoReportsProvidersAndStaleBuilds() {
+        prepare()
+        val info = mcp("test_discovery_info")
+        assertEquals("ok", info.status(), info.toString())
+        val project = info.at("result", "projects").jsonArray.single { it.text("project") == "SampleTests" }
+        assertTrue(project.at("providers").jsonArray.any { it.text("provider") == "NUnit3x" }, project.toString())
+        assertEquals("Fresh", project.text("build", "state"), project.toString())
+
+        // A source newer than the assembly: the build is stale and the answer says how to build
+        val source = activeSolutionDirectory.resolve("SampleTests/Tests.cs")
+        val original = Files.getLastModifiedTime(source)
+        try {
+            Files.setLastModifiedTime(source, FileTime.from(Instant.now().plusSeconds(3600)))
+            val stale = mcp("test_discovery_info", "project" to "SampleTests")
+            assertEquals("partial", stale.status(), stale.toString())
+            assertTrue(stale.warningCodes().contains("BUILD_OUTPUT_STALE"), stale.toString())
+            assertTrue(stale.suggestedTools().containsAll(listOf("build_solution_start", "build_solution_state", "test_discovery_info")), stale.toString())
+        } finally {
+            Files.setLastModifiedTime(source, original)
+        }
+
+        val unknown = mcp("test_discovery_info", "project" to "sampletests")
+        assertEquals("PROJECT_NOT_FOUND", unknown.errorCode(), unknown.toString())
+        assertTrue(unknown.toString().contains("\"SampleTests\""), unknown.toString())
     }
 
     private companion object {

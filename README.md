@@ -51,11 +51,32 @@ the report says which assembly (and from when) the tests were listed from.
 To try it out, open the demo solution [demo/Bookstore](demo/Bookstore/README.md): parametrized NUnit tests,
 ready `.rtsession` files and `.runsettings` files, each with the scenario it shows.
 
+## Tools for AI agents (MCP)
+
+With Rider's MCP Server enabled (*Settings → Tools → MCP Server*), the plugin adds tools to it, so agents connected
+to Rider (Claude Code, Junie, Cursor, …) manage test sessions themselves:
+
+| Tool | What it does |
+|---|---|
+| `test_session_list` | Sessions with id, name, test count and whether an agent created them |
+| `test_session_get` | A session's tests with their exact ids, project, framework and provider |
+| `test_session_create` | A session from test ids, a `.runsettings` file or a `.rtsession` file; a taken name is an error unless `ifExists=replace` |
+| `test_session_update` | Replaces, adds or removes tests and renames, keeping the session and its tab |
+| `test_session_delete` | Deletes a session and closes its tab |
+| `test_session_save` | Saves a session to a `.rtsession` file |
+| `test_discovery_info` | How Rider discovers the tests: per project tests by provider (built-in NUnit or VSTest) and build state (missing, stale), the settings behind it and what follows from them |
+
+Agents change and delete only the sessions they created, unless told the user's session may be changed (`allowUserSession`).
+Every answer has a status, error and warning codes, and suggestions: ready-made next calls, e.g. Rider's
+`build_solution_start` / `build_solution_state` and the same call again when a test assembly is missing or older than its sources,
+or the corrected test ids (`ParamFixture(A)` → `ParamFixture("A")`).
+
 ## Requirements
 
 - Rider 2026.2 (build 262)
 - NUnit 3/4 test projects
 - For `NUnit/Where`: .NET (Core) test projects referencing NUnit3TestAdapter
+- For the MCP tools: Rider's MCP Server plugin (bundled, optional)
 
 ## Build and install
 
@@ -84,10 +105,10 @@ Starts a headless Rider with the plugin (Rider's integration test framework), op
 
 | Path | Content |
 |---|---|
-| `src/dotnet/ReSharperPlugin.RiderTestsSupportPlus` | Backend (C#): test resolution, session files, `.runsettings` import, actions |
-| `src/rider/main` | Frontend (Kotlin): proxy actions in the Unit Tests window, `plugin.xml` |
+| `src/dotnet/ReSharperPlugin.RiderTestsSupportPlus` | Backend (C#): test resolution, session files, `.runsettings` import, actions, MCP tools (`Mcp/`), discovery and build state (`Discovery/`) |
+| `src/rider/main` | Frontend (Kotlin): proxy actions in the Unit Tests window, MCP tool declarations, `plugin.xml` |
 | `src/tools/RiderTestsSupportPlus.NUnitLister` | Helper that lists tests selected by `NUnit/Where` with the NUnit engine |
-| `protocol` | RD protocol model (used by the integration tests) |
+| `protocol` | RD protocol model (used by the MCP tools and the integration tests) |
 | `src/test` | Integration tests and the sample solution |
 | `demo/Bookstore` | Demo solution for trying the plugin and taking screenshots |
 

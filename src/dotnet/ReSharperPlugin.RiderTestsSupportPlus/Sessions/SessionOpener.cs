@@ -43,6 +43,23 @@ public sealed class SessionOpenResult
   public bool IsClean => Session != null && Resolution.IsComplete && Notes.Count == 0;
 }
 
+public sealed class ResolveOutcome
+{
+  public ResolveOutcome(TestResolutionResult result, bool rescanned, bool rescanTimedOut)
+  {
+    Result = result;
+    Rescanned = rescanned;
+    RescanTimedOut = rescanTimedOut;
+  }
+
+  public TestResolutionResult Result { get; }
+
+  public bool Rescanned { get; }
+
+  /// <summary>The rescan was still running when the result was taken; tests it finds later join the session by themselves.</summary>
+  public bool RescanTimedOut { get; }
+}
+
 /// <summary>
 /// Resolves requested tests, rescans the solution when some are missing, and creates and opens the session.
 /// </summary>
@@ -54,14 +71,27 @@ public static class SessionOpener
   public static Task<SessionOpenResult> ResolveAndOpenAsync(ISolution solution, string sessionName,
     IReadOnlyList<TestRequest> requests, IReadOnlyList<string> notes = null, IReadOnlyList<string> details = null)
   {
-    solution.Locks.AssertReadAccessAllowed();
     notes ??= new string[0];
     details ??= new string[0];
+    return ResolveAsync(solution, requests).ContinueWith(
+      t => Open(solution, sessionName, t.Result.Result, notes, details, t.Result.Rescanned),
+      TaskContinuationOptions.ExecuteSynchronously);
+  }
+
+  /// <summary>
+  /// Resolves the requests; when some are missing, rescans the solution and resolves them again.
+  /// Completes on the main thread. With <paramref name="rescanTimeout"/> the result does not wait for a longer rescan:
+  /// it is what was resolved so far and the rescan goes on in the background.
+  /// </summary>
+  public static Task<ResolveOutcome> ResolveAsync(ISolution solution, IReadOnlyList<TestRequest> requests,
+    TimeSpan? rescanTimeout = null)
+  {
+    solution.Locks.AssertReadAccessAllowed();
 
     var resolver = new TestElementResolver(solution.GetComponent<IUnitTestElementRepository>());
     var result = resolver.Resolve(requests);
     if (result.IsComplete || requests.Count == 0)
-      return Task.FromResult(Open(solution, sessionName, result, notes, details, rescanned: false));
+      return Task.FromResult(new ResolveOutcome(result, rescanned: false, rescanTimedOut: false));
 
     // Parametrized tests are often created only by metadata exploration of the built assembly, so a rescan may find them.
     // RescanAll does not clear the element repository, it re-explores projects and completes when exploration is done.
@@ -78,18 +108,24 @@ public static class SessionOpener
       rescan = Task.FromException(e);
     }
 
-    var completion = new TaskCompletionSource<SessionOpenResult>();
-    rescan.ContinueWith(task =>
+    rescan.ContinueWith(_ => progress.Dispose(), TaskScheduler.Default);
+    var waited = rescanTimeout == null
+      ? rescan
+      : Task.WhenAny(rescan, Task.Delay(rescanTimeout.Value));
+
+    var completion = new TaskCompletionSource<ResolveOutcome>();
+    waited.ContinueWith(_ =>
     {
-      progress.Dispose();
-      solution.Locks.ExecuteOrQueueReadLockEx(lifetime, "RiderTestsSupportPlus.OpenSession", () =>
+      solution.Locks.ExecuteOrQueueReadLockEx(lifetime, "RiderTestsSupportPlus.ResolveTests", () =>
       {
         try
         {
           // Cancelling the rescan still opens the session, with what was resolved so far.
-          var rescanned = task.Status == TaskStatus.RanToCompletion;
-          var finalResult = rescanned ? resolver.Resolve(requests) : result;
-          completion.SetResult(Open(solution, sessionName, finalResult, notes, details, rescanned));
+          var rescanned = rescan.Status == TaskStatus.RanToCompletion;
+          var timedOut = !rescan.IsCompleted;
+          // Resolving again after a timeout picks up whatever the rescan has found by now.
+          var finalResult = rescanned || timedOut ? resolver.Resolve(requests) : result;
+          completion.SetResult(new ResolveOutcome(finalResult, rescanned, timedOut));
         }
         catch (Exception e)
         {

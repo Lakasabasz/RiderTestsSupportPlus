@@ -11,6 +11,8 @@
     <module name="intellij.rd.client" />
   </dependencies>
   <depends>com.intellij.modules.rider</depends>
+  <!-- MCP tools for agents (test_session_*, test_discovery_info); everything else works without the MCP Server plugin -->
+  <depends optional="true" config-file="testssupportplus-mcp.xml">com.intellij.mcpServer</depends>
 
   <description>
 <![CDATA[
@@ -24,6 +26,8 @@
       by <code>dotnet vstest</code>, <code>NUnit/Where</code> by the NUnit engine, so the session holds exactly
       the tests <code>dotnet vstest</code> would run.</li>
 </ul>
+<p>With Rider's MCP Server enabled, AI agents get tools to create, update and delete test sessions, save them,
+   and learn how the solution's settings make Rider discover tests, with errors that say what to do next.</p>
 <p>The actions are in the session's <i>Export/Import</i> menu; loading and importing also in Explorer (toolbar and context menu).
    Supported test framework: NUnit 3/4.</p>
 ]]>

@@ -45,43 +45,50 @@ namespace JetBrains.Rider.Model
     [NotNull] public IRdEndpoint<SaveSessionRequest, int> SaveSession => _SaveSession;
     [NotNull] public IRdEndpoint<string, SessionReport> LoadSession => _LoadSession;
     [NotNull] public IRdEndpoint<string, SessionReport> ImportRunSettings => _ImportRunSettings;
+    [NotNull] public IRdEndpoint<McpToolRequest, string> McpTool => _McpTool;
     
     //private fields
     [NotNull] private readonly RdCall<SaveSessionRequest, int> _SaveSession;
     [NotNull] private readonly RdCall<string, SessionReport> _LoadSession;
     [NotNull] private readonly RdCall<string, SessionReport> _ImportRunSettings;
+    [NotNull] private readonly RdCall<McpToolRequest, string> _McpTool;
     
     //primary constructor
     private RiderTestsSupportPlusModel(
       [NotNull] RdCall<SaveSessionRequest, int> saveSession,
       [NotNull] RdCall<string, SessionReport> loadSession,
-      [NotNull] RdCall<string, SessionReport> importRunSettings
+      [NotNull] RdCall<string, SessionReport> importRunSettings,
+      [NotNull] RdCall<McpToolRequest, string> mcpTool
     )
     {
       if (saveSession == null) throw new ArgumentNullException("saveSession");
       if (loadSession == null) throw new ArgumentNullException("loadSession");
       if (importRunSettings == null) throw new ArgumentNullException("importRunSettings");
+      if (mcpTool == null) throw new ArgumentNullException("mcpTool");
       
       _SaveSession = saveSession;
       _LoadSession = loadSession;
       _ImportRunSettings = importRunSettings;
+      _McpTool = mcpTool;
       BindableChildren.Add(new KeyValuePair<string, object>("saveSession", _SaveSession));
       BindableChildren.Add(new KeyValuePair<string, object>("loadSession", _LoadSession));
       BindableChildren.Add(new KeyValuePair<string, object>("importRunSettings", _ImportRunSettings));
+      BindableChildren.Add(new KeyValuePair<string, object>("mcpTool", _McpTool));
     }
     //secondary constructor
     internal RiderTestsSupportPlusModel (
     ) : this (
       new RdCall<SaveSessionRequest, int>(SaveSessionRequest.Read, SaveSessionRequest.Write, JetBrains.Rd.Impl.Serializers.ReadInt, JetBrains.Rd.Impl.Serializers.WriteInt),
       new RdCall<string, SessionReport>(JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString, SessionReport.Read, SessionReport.Write),
-      new RdCall<string, SessionReport>(JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString, SessionReport.Read, SessionReport.Write)
+      new RdCall<string, SessionReport>(JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString, SessionReport.Read, SessionReport.Write),
+      new RdCall<McpToolRequest, string>(McpToolRequest.Read, McpToolRequest.Write, JetBrains.Rd.Impl.Serializers.ReadString, JetBrains.Rd.Impl.Serializers.WriteString)
     ) {}
     //deconstruct trait
     //statics
     
     
     
-    protected override long SerializationHash => -4442246916081668415L;
+    protected override long SerializationHash => -1625640362991453197L;
     
     protected override Action<ISerializers> Register => RegisterDeclaredTypesSerializers;
     public static void RegisterDeclaredTypesSerializers(ISerializers serializers)
@@ -105,6 +112,7 @@ namespace JetBrains.Rider.Model
         printer.Print("saveSession = "); _SaveSession.PrintEx(printer); printer.Println();
         printer.Print("loadSession = "); _LoadSession.PrintEx(printer); printer.Println();
         printer.Print("importRunSettings = "); _ImportRunSettings.PrintEx(printer); printer.Println();
+        printer.Print("mcpTool = "); _McpTool.PrintEx(printer); printer.Println();
       }
       printer.Print(")");
     }
@@ -121,6 +129,100 @@ namespace JetBrains.Rider.Model
     public static RiderTestsSupportPlusModel GetRiderTestsSupportPlusModel(this Solution solution)
     {
       return solution.GetOrCreateExtension("riderTestsSupportPlusModel", () => new RiderTestsSupportPlusModel());
+    }
+  }
+  
+  
+  /// <summary>
+  /// <p>Generated from: RiderTestsSupportPlusModel.kt:34</p>
+  /// </summary>
+  public sealed class McpToolRequest : IPrintable, IEquatable<McpToolRequest>
+  {
+    //fields
+    //public fields
+    [NotNull] public string Tool {get; private set;}
+    [NotNull] public string Arguments {get; private set;}
+    
+    //private fields
+    //primary constructor
+    public McpToolRequest(
+      [NotNull] string tool,
+      [NotNull] string arguments
+    )
+    {
+      if (tool == null) throw new ArgumentNullException("tool");
+      if (arguments == null) throw new ArgumentNullException("arguments");
+      
+      Tool = tool;
+      Arguments = arguments;
+    }
+    //secondary constructor
+    //deconstruct trait
+    public void Deconstruct([NotNull] out string tool, [NotNull] out string arguments)
+    {
+      tool = Tool;
+      arguments = Arguments;
+    }
+    //statics
+    
+    public static CtxReadDelegate<McpToolRequest> Read = (ctx, reader) => 
+    {
+      var tool = reader.ReadString();
+      var arguments = reader.ReadString();
+      var _result = new McpToolRequest(tool, arguments);
+      return _result;
+    };
+    
+    public static CtxWriteDelegate<McpToolRequest> Write = (ctx, writer, value) => 
+    {
+      writer.Write(value.Tool);
+      writer.Write(value.Arguments);
+    };
+    
+    //constants
+    
+    //custom body
+    //methods
+    //equals trait
+    public override bool Equals(object obj)
+    {
+      if (ReferenceEquals(null, obj)) return false;
+      if (ReferenceEquals(this, obj)) return true;
+      if (obj.GetType() != GetType()) return false;
+      return Equals((McpToolRequest) obj);
+    }
+    public bool Equals(McpToolRequest other)
+    {
+      if (ReferenceEquals(null, other)) return false;
+      if (ReferenceEquals(this, other)) return true;
+      return Tool == other.Tool && Arguments == other.Arguments;
+    }
+    //hash code trait
+    public override int GetHashCode()
+    {
+      unchecked {
+        var hash = 0;
+        hash = hash * 31 + Tool.GetHashCode();
+        hash = hash * 31 + Arguments.GetHashCode();
+        return hash;
+      }
+    }
+    //pretty print
+    public void Print(PrettyPrinter printer)
+    {
+      printer.Println("McpToolRequest (");
+      using (printer.IndentCookie()) {
+        printer.Print("tool = "); Tool.PrintEx(printer); printer.Println();
+        printer.Print("arguments = "); Arguments.PrintEx(printer); printer.Println();
+      }
+      printer.Print(")");
+    }
+    //toString
+    public override string ToString()
+    {
+      var printer = new SingleLinePrettyPrinter();
+      Print(printer);
+      return printer.ToString();
     }
   }
   

@@ -178,6 +178,52 @@ Sprawdzane są:
   zostaje w kryterium, więc test dołączy do sesji sam, gdy Rider go odkryje.
 - Zapisywane są liście sesji, więc testy dodane później do klasy zapisanej jako całość nie wejdą do sesji.
 
+## Narzędzia MCP dla agentów (2026-10-29)
+
+Cel: agent podłączony do Ridera (Claude Code, Junie…) sam tworzy, zmienia i usuwa sesje, bez zaśmiecania
+okna Unit Tests i z błędami, które mówią, co zrobić dalej.
+
+- **MCP server Ridera, nie `/ide`.** `/ide` w Claude Code łączy się z własnym pluginem JetBrains, z zamkniętym
+  zestawem narzędzi. MCP server Ridera (`com.intellij.mcpServer`, w 2026.2 wbudowany) ma dynamiczny extension point
+  `mcpServer.mcpToolset`, z którego korzysta sam Rider (dotCover `findTests`, analiza, debugger). Wtyczka rejestruje
+  `TestSessionToolset` w `testssupportplus-mcp.xml`, czyli opcjonalnej zależności. Bez MCP Server reszta działa jak dotąd.
+- **Frontend tylko deklaruje.** Nazwy, parametry i opisy narzędzi są w Kotlinie. Wywołanie idzie jednym callem RD
+  `mcpTool(tool, argumentsJson) → json` do `Mcp/SessionTools.cs`. Kontrakt widziany przez agenta (walidacja, błędy,
+  sugestie) jest w całości w backendzie, w jednym miejscu.
+- **Koperta odpowiedzi.** Odpowiedź ma pola `status` (`ok`/`partial`/`failed`), `error{code,message}`, `result`,
+  `warnings[]` i `suggestions[]`. Sugestia to gotowe wywołanie (narzędzie i argumenty) albo `userAction`, gdy tylko
+  użytkownik może coś zrobić (ustawienia, odblokowanie sesji). Częściowy wynik nie jest błędem. `failed` oznacza,
+  że nic nie zmieniono. Kody są w `ProblemCodes`, a agenci się na nich opierają, więc nie wolno ich zmieniać.
+- **CRUD bez nowych zakładek.** Wszystko jest sprawdzone w zdekompilowanym SDK 2026.2.2:
+  - update ustawia `IUnitTestSession.Criterion` (sesja reaguje na zmianę, tak jak przy wbudowanym „Add to session”):
+    dodawanie przez `AddElementsMatching`, usuwanie przez `ExcludeElementsMatching(TestAncestorCriterion)`
+    razem z potomkami;
+  - delete wywołuje `IUnitTestSessionRepository.DestroySession`. Conductor nasłuchuje `SessionDestroyed` i zamyka
+    zakładkę, a sesja znika ze stanu przywracanego po starcie;
+  - `create` z zajętą nazwą zwraca błąd `SESSION_EXISTS` z sugestią `update` albo `ifExists=replace`.
+- **Sesje użytkownika chronione.** Guidy sesji utworzonych przez agenta są w ustawieniach solucji
+  (`AgentSessionsSettings`, ten sam kontekst co `UnitTestSessionStore` Ridera), więc przetrwają restart.
+  `update` i `delete` na cudzej sesji wymagają `allowUserSession: true`, a na zablokowanej (`IsLocked`) albo
+  uruchomionej (`!IsIdle`) dają błąd.
+- **Rescan nie blokuje agenta.** `SessionOpener.ResolveAsync` czeka na rescan najwyżej 60 s. Potem zwraca to, co jest
+  (`RESCAN_TIMED_OUT`), a oczekiwane id zostają w kryterium, więc testy dołączą do sesji same.
+- **Podpowiedzi id** (`SimilarTests`) porównują id w formie frameworka bez wielkości liter, cudzysłowów i spacji
+  (`ParamFixture(A)` → `ParamFixture("A")`). Do tego testy o tej samej nazwie w innych klasach.
+  Gdy da się poprawić argument `tests`, sugestią jest to samo wywołanie z poprawionymi id.
+- **Odkrywanie testów** (`Discovery/DiscoveryInfo`). Najpierw stan faktyczny dla każdego projektu i TFM:
+  elementy w repozytorium według providera i executora VSTest, stan builda, obecność `NUnit3.TestAdapter.dll`.
+  Potem efektywne ustawienia: `DisabledProviders`, `VsTestProviderSettings.ExecutorExcludeList` (VSTest dopasowuje
+  nazwy plików adapterów, czyli wartości, nie URI), `NUnitProviderSettings.TestDiscoveryFromArtifactsMethod`,
+  domyślny runsettings Ridera i jego autodetekcja. Wyprowadzone `implications` mówią to wprost, np.
+  „NUnit3x wyłączony → id z prefiksem executora, testy pojawiają się dopiero po buildzie”.
+- **Build** (`Discovery/BuildOutput`): brak DLL aktywnej konfiguracji (`BUILD_OUTPUT_MISSING`) albo DLL starsza niż
+  najnowsze źródło lub plik projektu, również w projektach przez referencje (`BUILD_OUTPUT_STALE`). Do tego build
+  w toku (`ISolutionBuilder.RunningRequest`). Sugestia to sekwencja `build_solution_start` → `build_solution_state`
+  → ponowienie wywołania. Sama wtyczka nie buduje: jeden mechanizm builda w IDE, a błędy kompilacji widać
+  w `build_solution_state`. Nieaktualny build to tylko ostrzeżenie, bo porównanie czasów jest heurystyką: build bez
+  zmian nie dotyka DLL, a twardy błąd zapętliłby agenta. Import `.runsettings` w oknie Unit Tests też teraz zgłasza
+  nieaktualny build.
+
 ## Plan
 
 1. **Prototyp rozwiązywania** (backend): akcja, która dla podanej nazwy

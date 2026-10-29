@@ -61,20 +61,41 @@ public sealed class SessionFile
     SessionFile file;
     try
     {
-      file = Load(path.FullPath);
+      file = LoadChecked(path);
+    }
+    catch (InvalidDataException e)
+    {
+      return Task.FromException<SessionOpenResult>(e);
+    }
+
+    return SessionOpener.ResolveAndOpenAsync(solution, file.Name ?? path.NameWithoutExtension, file.ToRequests());
+  }
+
+  /// <summary>
+  /// Reads the file; <see cref="InvalidDataException"/> says what is wrong with it,
+  /// including run settings picked by mistake (<see cref="IsRunSettings"/>).
+  /// </summary>
+  public static SessionFile LoadChecked(FileSystemPath path)
+  {
+    try
+    {
+      return Load(path.FullPath);
     }
     catch (Exception e)
     {
       // Import from .runsettings sits next to this action, run settings are the likely wrong pick
-      var message = FirstCharacter(path.FullPath) == '<'
+      var message = IsRunSettings(path.FullPath)
         ? $"{path.Name} is not a saved test session. To create a session from run settings use Import Session from .runsettings."
         : "Could not read the session file: " + e.Message;
-      return Task.FromException<SessionOpenResult>(new InvalidDataException(message, e));
+      throw new InvalidDataException(message, e);
     }
-
-    var requests = file.Tests.Where(t => !string.IsNullOrEmpty(t.TestId)).Select(t => t.ToRequest()).ToList();
-    return SessionOpener.ResolveAndOpenAsync(solution, file.Name ?? path.NameWithoutExtension, requests);
   }
+
+  public List<TestRequest> ToRequests() =>
+    Tests.Where(t => !string.IsNullOrEmpty(t.TestId)).Select(t => t.ToRequest()).ToList();
+
+  /// <summary>Whether the file is XML, as run settings are.</summary>
+  public static bool IsRunSettings(string path) => FirstCharacter(path) == '<';
 
   /// <summary>Whether the file is JSON, as a session file is (run settings are XML).</summary>
   public static bool LooksLikeSessionFile(string path) =>

@@ -1,0 +1,6 @@
+<!-- Loaded only when the MCP Server plugin is enabled (optional dependency in plugin.xml) -->
+<idea-plugin>
+  <extensions defaultExtensionNs="com.intellij">
+    <mcpServer.mcpToolset implementation="pl.info.lukaszm.testssupportplus.mcp.TestSessionToolset" />
+  </extensions>
+</idea-plugin>
