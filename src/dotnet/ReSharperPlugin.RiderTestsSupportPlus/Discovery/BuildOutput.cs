@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using JetBrains.Annotations;
 using JetBrains.ProjectModel;
+using JetBrains.Util;
 using JetBrains.Util.Dotnet.TargetFrameworkIds;
 
 namespace ReSharperPlugin.RiderTestsSupportPlus.Discovery;
@@ -97,7 +98,9 @@ public sealed class BuildOutput
       if (myNewestSources.TryGetValue((project, targetFrameworkId), out var cached))
         return cached;
 
-      var files = project.GetAllProjectFiles(f => SourceExtensions.Contains(f.Location.ExtensionWithDot))
+      var projectDirectory = project.Location;
+      var files = project.GetAllProjectFiles(f => SourceExtensions.Contains(f.Location.ExtensionWithDot) &&
+                                                  !IsBuildArtifact(f.Location, projectDirectory))
         .Select(f => f.Location.FullPath)
         .Append(project.ProjectFileLocation?.FullPath);
 
@@ -121,6 +124,20 @@ public sealed class BuildOutput
 
       myNewestSources[(project, targetFrameworkId)] = newest;
       return newest;
+    }
+
+    /// <summary>
+    /// Files MSBuild writes itself (obj/…/AssemblyInfo.cs, *.g.cs): a design-time build rewrites them without changing
+    /// the sources, so they would make every build look stale.
+    /// </summary>
+    private static bool IsBuildArtifact(VirtualFileSystemPath file, VirtualFileSystemPath projectDirectory)
+    {
+      if (file.Name.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase))
+        return true;
+      if (projectDirectory == null || projectDirectory.IsEmpty || !projectDirectory.IsPrefixOf(file))
+        return false;
+      return file.MakeRelativeTo(projectDirectory).Components
+        .Any(c => c.Equals("obj", StringComparison.OrdinalIgnoreCase) || c.Equals("bin", StringComparison.OrdinalIgnoreCase));
     }
   }
 }
