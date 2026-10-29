@@ -1,10 +1,13 @@
 namespace ReSharperPlugin.RiderTestsSupportPlus.Resolution;
 
 /// <summary>
-/// Test ids of Rider's VSTest provider for tests run by NUnit3TestAdapter. The provider prefixes the adapter's
-/// FullyQualifiedName with the executor URI: <c>executor://nunit3testexecutor/::Ns.C(A).M(X)</c> for a test and
-/// <c>executor://nunit3testexecutor/#Ns.C(A).M</c> for its method, fixture and class.
-/// Used when the built-in NUnit provider is disabled, e.g. to work around RIDER-131305.
+/// Test ids of Rider's VSTest provider for tests run by NUnit3TestAdapter: the adapter's FullyQualifiedName prefixed with
+/// the executor URI. The provider (VsTestTestCaseMapping.BuildHierarchy) walks the name: classes, parametrized fixtures and
+/// methods become elements with '#' (<c>executor://nunit3testexecutor/#Ns.C("A").M</c>); only a name with something left
+/// after its method, i.e. test case arguments, gets a leaf with '::' (<c>executor://nunit3testexecutor/::Ns.C("A").M(1)</c>).
+/// A test without arguments is thus its method element, <c>#Ns.C.M</c>, and has no '::' id; a name whose class Rider cannot
+/// find (e.g. not built yet) is a single '::' leaf. Used when the built-in NUnit provider is disabled, e.g. to work around
+/// RIDER-131305.
 /// </summary>
 public static class VsTestIds
 {
@@ -18,6 +21,9 @@ public static class VsTestIds
   public static string Test(string testId) => NUnitExecutor + TestSeparator + ToFrameworkId(testId);
 
   public static string Container(string testId) => NUnitExecutor + ContainerSeparator + ToFrameworkId(testId);
+
+  /// <summary>The ids a test or container with the adapter's name <paramref name="frameworkId"/> can have, the test case form first.</summary>
+  public static string[] Forms(string frameworkId) => new[] { Test(frameworkId), Container(frameworkId) };
 
   public static bool IsVsTestId(string testId) => testId.StartsWith(NUnitExecutor);
 

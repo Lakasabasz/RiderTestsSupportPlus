@@ -136,12 +136,30 @@ Sprawdzone w zdekompilowanym SDK 2026.2.2 i na przykładowym projekcie NUnit 4.
   testów, tak jak testhost). Tylko eksploracja: nic się nie wykonuje i nic nie jest zapisywane obok testów.
   Gdy są oba filtry, adapter stosuje `TestCaseFilter` i ignoruje `Where`, więc wtyczka robi tak samo.
   Zgodność z prawdziwym przebiegiem sprawdzona na próbce. Na BuddyTests: 80 testów w ~11 s.
-- **Provider VSTest ma inne `TestId` (ustalone 2026-10-27, Rider 2026.2).** Przy wyłączonym wbudowanym providerze
-  NUnit (`UnitTestingSettings.DisabledProviders` → `NUnit3x`, obejście RIDER-131305: test parametryzowany pod
-  parametryzowanym fixture'em z jedną metodą odpala wszystkie case'y metody) i adapterze NUnit zdjętym z listy
-  ignorowanych VSTest (`VsTestElementFactory`, `VsTestTestCaseMapping`) test ma `executor://nunit3testexecutor/::<FQN>`,
-  a metoda, fixture i klasa `executor://nunit3testexecutor/#<nazwa>`. URI jest małymi literami, bo normalizuje je `Uri`.
-  `TestElementResolver` próbuje formy drugiego providera, gdy własna nie trafia (`VsTestIds`).
+- **Provider VSTest ma inne `TestId` (ustalone 2026-10-27, poprawione 2026-10-29, Rider 2026.2).** Dotyczy wyłączonego
+  wbudowanego providera NUnit (`UnitTestingSettings.DisabledProviders` → `NUnit3x`) i adaptera NUnit zdjętego z listy
+  ignorowanych VSTest. To obejście RIDER-131305: test parametryzowany pod parametryzowanym fixture'em z jedną metodą
+  odpala wszystkie case'y metody. Id buduje `VsTestTestCaseMapping.BuildHierarchy`, które przechodzi FQN adaptera:
+  - klasa to `executor://nunit3testexecutor/#Ns.C`, fixture parametryzowany `#Ns.C("A")`, metoda `#…C.M`;
+  - liść `::<FQN>` powstaje **tylko**, gdy po ostatniej rozpoznanej metodzie zostaje tekst (argumenty case'a);
+  - test bez argumentów jest więc samym elementem metody, `#Ns.C.M`, i nie ma formy z `::`;
+  - gdy typu nie ma w cache (projekt niezbudowany), całe FQN trafia do jednego liścia `::`.
+
+  URI jest małymi literami, bo normalizuje je `Uri`. `TestElementResolver` próbuje wszystkich form tego samego id
+  (FQN, `::`, `#`), gdy podana nie trafia (`VsTestIds.Forms`). Oczekiwane id brakującego testu w kryterium sesji
+  dostaje obie formy VSTest, bo przed odkryciem testu nie wiadomo, którą będzie miał. Wcześniej rozpoznawane było
+  tylko `::`, więc testy bez argumentów (u nas `ParamFixture(..).Plain`, `Plain.Simple`) były zastępowane całą klasą.
+- **Lista ignorowanych adapterów VSTest (`VsTestProviderSettings.ExecutorExcludeList`) działa dwojako.**
+  - Wartości (nazwy plików DLL) decydują, czy projekt ma adapter, którego VSTest może użyć. Wpis z pustą wartością
+    wyłącza wszystkie adaptery (`CalculateHasTestAdapter`).
+  - Klucze (URI executorów) trafiają do runnera, który pomija te executory (`ExtensionsManager`).
+
+  Zdjęcie wpisu w warstwie nadrzędnej wymaga `EntryIndexRemoved` **oraz** atrapy `EntryIndexedValue` w tej samej
+  warstwie (dokumentacja `StoreToStorageTranslation`): bez wartości lookup nie znajdzie tej warstwy i usunięcie
+  nie działa. Tak wygląda `SampleTestsVsTest.sln.DotSettings`.
+- **Test na konfiguracji VSTest (`VsTestProviderTest`) jest wyłączony.** Ustawienia działają, co widać w
+  `test_discovery_info`, ale headless IDE testów nie uruchamia discovery VSTest i repozytorium zostaje puste, nawet po
+  rescanie. Fix sprawdzony na prawdziwej solucji.
 - **Odpowiedzi na otwarte pytania (przyjęte na start):** NUnit 3/4, `.runsettings` = `TestCaseFilter` lub `<NUnit><Where>`
   (bez `.playlist`), format sesji = JSON (Newtonsoft jest w Riderze), rozszerzenie `.rtsession`.
 

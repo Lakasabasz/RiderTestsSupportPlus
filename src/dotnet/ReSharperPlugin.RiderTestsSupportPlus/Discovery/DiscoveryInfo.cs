@@ -116,7 +116,10 @@ public sealed class DiscoveryInfo
     }
 
     var nunitDisabled = s.DisabledProviders.Contains(NUnitProviderId);
-    var nunitIgnoredByVsTest = s.VsTestIgnoresNUnitAdapter;
+    var nunitIgnoredByVsTest = s.VsTestIgnoresNUnitAdapter || s.VsTestIgnoresAllAdapters;
+    if (s.VsTestIgnoresAllAdapters)
+      yield return "An entry of VSTest's ignored adapters (Unit Testing | VSTest) has an empty file name, which makes VSTest ignore " +
+                   "every adapter: VSTest discovers no tests at all. Remove the entry, or give it the adapter's file name.";
     var vsTestDisabled = s.DisabledProviders.Contains(VsTestIds.ProviderId);
 
     if (nunitDisabled && (nunitIgnoredByVsTest || vsTestDisabled))
@@ -168,7 +171,7 @@ public sealed class DiscoverySettings
   /// <summary>Ids of disabled providers, e.g. <c>NUnit3x</c>, <c>VsTest</c>.</summary>
   public List<string> DisabledProviders { get; private set; }
 
-  /// <summary>Executor URIs of adapters the VSTest provider leaves to other providers.</summary>
+  /// <summary>Executor URIs of adapters the VSTest provider leaves to other providers (its runner skips these executors).</summary>
   public List<string> VsTestIgnoredExecutors { get; private set; }
 
   /// <summary><c>Metadata</c> or <c>TestRunner</c>.</summary>
@@ -185,6 +188,9 @@ public sealed class DiscoverySettings
   /// <summary>Whether VSTest leaves NUnit3TestAdapter to the built-in NUnit provider (Rider's default).</summary>
   public bool VsTestIgnoresNUnitAdapter { get; private set; }
 
+  /// <summary>An ignored adapter without a file name: VSTest then uses no adapter at all.</summary>
+  public bool VsTestIgnoresAllAdapters { get; private set; }
+
   public static DiscoverySettings Read(ISolution solution)
   {
     var store = solution.GetComponent<ISettingsStore>().BindToContextTransient(ContextRange.Smart(solution.ToDataContext2()));
@@ -196,10 +202,13 @@ public sealed class DiscoverySettings
       DisabledProviders = Indexed(store, (UnitTestingSettings x) => x.DisabledProviders)
         .Where(x => x.Value is true).Select(x => x.Key.ToString()).OrderBy(x => x).ToList(),
       VsTestIgnoredExecutors = ignoredAdapters.Select(x => x.Key.ToString()).OrderBy(x => x).ToList(),
-      // VSTest matches the adapter file names (the values), the URIs only name them
+      // Both halves count: whether a project has an adapter VSTest may use is decided by the file names (the values),
+      // which tests the runner keeps by the executor URIs (the keys)
       VsTestIgnoresNUnitAdapter = ignoredAdapters.Any(x =>
         string.Equals(x.Value as string, NUnitAdapterFile, StringComparison.OrdinalIgnoreCase) ||
         string.Equals(x.Key as string, NUnitExecutor, StringComparison.OrdinalIgnoreCase)),
+      // An entry without a file name makes VSTest treat every adapter as ignored (VsTestProvider.CalculateHasTestAdapter)
+      VsTestIgnoresAllAdapters = ignoredAdapters.Any(x => x.Value is string { Length: 0 }),
       NUnitDiscoveryMethod = store.GetValue((NUnitProviderSettings x) => x.TestDiscoveryFromArtifactsMethod).ToString(),
       TestingPlatformIgnoresProjectsOfOtherProviders =
         store.GetValue((TestingPlatformTestProviderSettings x) => x.IgnoreProjectsSupportedByOtherProviders),

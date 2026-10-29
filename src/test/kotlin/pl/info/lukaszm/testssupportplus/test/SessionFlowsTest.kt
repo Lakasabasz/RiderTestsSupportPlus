@@ -67,76 +67,7 @@ import javax.swing.JTextField
 @Solution("SampleTests")
 @TestSettings(sdkVersion = SdkVersion.AUTODETECT, buildTool = BuildTool.AUTODETECT)
 @TestMethodOrder(MethodOrderer.OrderAnnotation::class)
-class SessionFlowsTest : PerClassSolutionTestBase() {
-
-    private val ns = "Sample.Ns"
-
-    private fun <A, T> call(call: IRdCall<A, T>, argument: A): T {
-        val task = call.start(Lifetime.Eternal, argument)
-        waitAndPump(Duration.ofMinutes(5), { task.result.valueOrNull != null }, { "RD call did not finish" })
-        return task.result.valueOrNull!!.unwrap()
-    }
-
-    private fun model() = project.solution.riderTestsSupportPlusModel
-
-    private fun prepare() {
-        if (prepared) return
-        buildWholeSolution(defaultSettings, null, Duration.ofMinutes(5))
-        val ut = createUtFacade(project)
-        try { ut.waitForDiscovering() } finally { ut.close() }
-        prepared = true
-    }
-
-    private fun sessionFile(vararg tests: Triple<String, String?, String?>, name: String = "Loaded"): Path {
-        // (testId, projectId, targetFramework); null = leave the saved value out
-        val items = tests.joinToString(",\n") { (id, projectId, tfm) ->
-            buildString {
-                append("{\"ProviderId\":\"NUnit3x\",\"ProjectName\":\"SampleTests\",\"TestId\":")
-                append(json(id))
-                projectId?.let { append(",\"ProjectId\":").append(json(it)) }
-                tfm?.let { append(",\"TargetFramework\":").append(json(it)) }
-                append("}")
-            }
-        }
-        val file = Files.createTempFile("session", ".rtsession")
-        Files.writeString(file, "{\"FormatVersion\":1,\"Name\":${json(name)},\"Tests\":[\n$items\n]}")
-        return file
-    }
-
-    private fun json(s: String) = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
-
-    private fun report(r: SessionReport) = "exact=${r.exact}\nancestors=${r.ancestors}\nunresolved=${r.unresolved}\nnotes=${r.notes}"
-
-    /** Calls an MCP tool on the backend, as TestSessionToolset does, and returns its answer. */
-    private fun mcp(tool: String, vararg arguments: Pair<String, Any?>): JsonObject {
-        val json = buildJsonObject {
-            for ((key, value) in arguments) put(key, when (value) {
-                null -> continue
-                is String -> JsonPrimitive(value)
-                is Boolean -> JsonPrimitive(value)
-                is List<*> -> JsonArray(value.map { JsonPrimitive(it as String) })
-                else -> error("Unsupported argument $key=$value")
-            })
-        }
-        return Json.parseToJsonElement(call(model().mcpTool, McpToolRequest(tool, json.toString()))).jsonObject
-    }
-
-    private fun JsonElement.at(vararg path: String): JsonElement = path.fold(this) { e, key -> e.jsonObject[key] ?: error("No '$key' in $e") }
-    private fun JsonElement.text(vararg path: String) = at(*path).jsonPrimitive.content
-    private fun JsonObject.status() = text("status")
-    private fun JsonObject.errorCode() = text("error", "code")
-    private fun JsonObject.warningCodes() = this["warnings"]?.jsonArray?.map { it.text("code") } ?: emptyList()
-    private fun JsonObject.suggestedTools() = this["suggestions"]?.jsonArray?.mapNotNull { it.jsonObject["tool"]?.jsonPrimitive?.content } ?: emptyList()
-
-    /** Number of tests in the session once Rider has evaluated its criterion. */
-    private fun waitForTestCount(sessionId: String, expected: Int): JsonObject {
-        var answer = mcp("test_session_get", "session" to sessionId)
-        waitAndPump(Duration.ofSeconds(60), {
-            answer = mcp("test_session_get", "session" to sessionId)
-            answer.at("result", "session", "tests").jsonPrimitive.int == expected
-        }, { "session $sessionId should have $expected tests: $answer" })
-        return answer
-    }
+class SessionFlowsTest : PluginSolutionTest() {
 
     @Test
     @Order(1)
@@ -451,10 +382,6 @@ class SessionFlowsTest : PerClassSolutionTestBase() {
         val unknown = mcp("test_discovery_info", "project" to "sampletests")
         assertEquals("PROJECT_NOT_FOUND", unknown.errorCode(), unknown.toString())
         assertTrue(unknown.toString().contains("\"SampleTests\""), unknown.toString())
-    }
-
-    private companion object {
-        var prepared = false
     }
 
     /** Records the title of every file dialog and cancels it. */

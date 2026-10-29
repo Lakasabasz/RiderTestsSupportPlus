@@ -32,20 +32,21 @@ public sealed class TestResolution
   public IUnitTestElement Element { get; }
 
   /// <summary>
-  /// Natural id the test would have once Rider creates it (parametrized tests often appear only after a build or run).
-  /// Keeping it in the session criterion lets the session pick the test up by itself.
+  /// Natural ids the test may have once Rider creates it (parametrized tests often appear only after a build or run).
+  /// Keeping them in the session criterion lets the session pick the test up by itself.
   /// </summary>
-  public UnitTestElementId ExpectedId =>
+  public IEnumerable<UnitTestElementId> ExpectedIds =>
     Element == null
-      ? null
-      : new UnitTestElementId(Element.NaturalId.ProjectId, Element.NaturalId.TargetFrameworkId, Element.NaturalId.ProviderId,
-        ExpectedTestId, Request.Salt);
+      ? Enumerable.Empty<UnitTestElementId>()
+      : ExpectedTestIds.Select(testId => new UnitTestElementId(Element.NaturalId.ProjectId, Element.NaturalId.TargetFrameworkId,
+        Element.NaturalId.ProviderId, testId, Request.Salt));
 
-  // The ancestor may come from the other provider than the request (see TestElementResolver.FindInOtherProvider)
-  private string ExpectedTestId =>
+  // The ancestor may come from the other provider than the request (see TestElementResolver.FindUnderOtherId).
+  // Under VSTest the form depends on how the adapter names the test, which is unknown until it exists, so both.
+  private IEnumerable<string> ExpectedTestIds =>
     Element.NaturalId.ProviderId == VsTestIds.ProviderId
-      ? VsTestIds.Test(Request.TestId)
-      : VsTestIds.ToFrameworkId(Request.TestId);
+      ? VsTestIds.Forms(VsTestIds.ToFrameworkId(Request.TestId))
+      : new[] { VsTestIds.ToFrameworkId(Request.TestId) };
 }
 
 public sealed class TestResolutionResult
@@ -81,7 +82,7 @@ public sealed class TestResolutionResult
           break;
         case TestResolutionKind.Ancestor:
           ancestorIds.Add(item.Element.NaturalId);
-          ids.Add(item.ExpectedId);
+          ids.UnionWith(item.ExpectedIds);
           break;
       }
     }

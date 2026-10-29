@@ -713,7 +713,8 @@ public sealed class SessionTools
   private void ReportSettingsProblems(DiscoverySettings settings)
   {
     var nunitDisabled = settings.DisabledProviders.Contains(DiscoveryInfo.NUnitProviderId);
-    if (nunitDisabled && (settings.VsTestIgnoresNUnitAdapter || settings.DisabledProviders.Contains(VsTestIds.ProviderId)))
+    if (nunitDisabled && (settings.VsTestIgnoresNUnitAdapter || settings.VsTestIgnoresAllAdapters ||
+                          settings.DisabledProviders.Contains(VsTestIds.ProviderId)))
     {
       myResponse.Warn(ProblemCodes.NUnitNotDiscovered,
         "Neither the built-in NUnit provider nor VSTest discovers NUnit tests with the current settings, see 'implications'.",

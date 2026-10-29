@@ -15,7 +15,7 @@ namespace ReSharperPlugin.RiderTestsSupportPlus.Resolution;
 /// (<c>Ns.TestClass(A).TestName(X)</c>); project and target framework only narrow the result. This is what makes
 /// saved sessions survive a changed project GUID or target framework, unlike the built-in session import,
 /// which requires the whole natural id to match. With the VSTest provider the id is the same name prefixed with
-/// the executor URI (<see cref="VsTestIds"/>), so a request resolves under either provider.
+/// the executor URI (<see cref="VsTestIds"/>), so a request resolves under either provider and in any form of the id.
 /// </summary>
 public sealed class TestElementResolver
 {
@@ -36,13 +36,13 @@ public sealed class TestElementResolver
 
   private TestResolution ResolveOne(TestRequest request)
   {
-    var element = Find(request, request.TestId, request.ProviderId) ?? FindInOtherProvider(request, request.TestId, VsTestIds.Test);
+    var element = Find(request, request.TestId, request.ProviderId) ?? FindUnderOtherId(request, request.TestId);
     if (element != null)
       return new TestResolution(request, TestResolutionKind.Exact, element);
 
     foreach (var ancestorId in request.AncestorIds)
     {
-      var ancestor = Find(request, ancestorId, request.ProviderId) ?? FindInOtherProvider(request, ancestorId, VsTestIds.Container);
+      var ancestor = Find(request, ancestorId, request.ProviderId) ?? FindUnderOtherId(request, ancestorId);
       if (ancestor != null)
         return new TestResolution(request, TestResolutionKind.Ancestor, ancestor);
     }
@@ -51,20 +51,17 @@ public sealed class TestElementResolver
   }
 
   /// <summary>
-  /// The same test under the other provider's id: the built-in NUnit provider uses the adapter's FullyQualifiedName,
-  /// the VSTest provider prefixes it with the executor URI. A session saved or listed with one provider
-  /// thus still resolves after switching to the other.
+  /// The same test or container under the other forms of its id: the built-in NUnit provider uses the adapter's
+  /// FullyQualifiedName, the VSTest provider prefixes it with the executor URI, with '::' or '#' depending on whether
+  /// the name ends with arguments (<see cref="VsTestIds"/>). A session saved or listed with one provider thus still
+  /// resolves after switching to the other, and a VSTest id saved in the wrong form still finds its test.
   /// </summary>
   [CanBeNull]
-  private IUnitTestElement FindInOtherProvider(TestRequest request, string testId, Func<string, string> toVsTestId)
+  private IUnitTestElement FindUnderOtherId(TestRequest request, string testId)
   {
-    var vsTestId = toVsTestId(testId);
-    if (!VsTestIds.IsVsTestId(testId))
-      return Find(request, vsTestId, VsTestIds.ProviderId);
-
-    // Ancestors of a VSTest test id carry the test's separator, containers have their own
-    return Find(request, VsTestIds.ToFrameworkId(testId), null)
-           ?? (vsTestId != testId ? Find(request, vsTestId, VsTestIds.ProviderId) : null);
+    var frameworkId = VsTestIds.ToFrameworkId(testId);
+    var forms = new[] { frameworkId }.Concat(VsTestIds.Forms(frameworkId)).Where(x => x != testId);
+    return forms.Select(x => Find(request, x, VsTestIds.IsVsTestId(x) ? VsTestIds.ProviderId : null)).FirstOrDefault(x => x != null);
   }
 
   [CanBeNull]
