@@ -37,6 +37,19 @@ repositories {
 
 version = extra["PluginVersion"] as String
 
+// JDK that gradlew downloads and runs Gradle on: the same Java as the toolchain (rider-model.jar needs 25), so CI needs one JDK.
+// After a change run ./gradlew wrapper to regenerate gradlew and gradlew.bat.
+jvmWrapper {
+    val jdk = "https://download.oracle.com/java/25/archive/jdk-25.0.5.1"
+    linuxX64JvmUrl = "${jdk}_linux-x64_bin.tar.gz"
+    linuxAarch64JvmUrl = "${jdk}_linux-aarch64_bin.tar.gz"
+    macX64JvmUrl = "${jdk}_macos-x64_bin.tar.gz"
+    macAarch64JvmUrl = "${jdk}_macos-aarch64_bin.tar.gz"
+    windowsX64JvmUrl = "${jdk}_windows-x64_bin.zip"
+    // Oracle has no Windows ARM64 build
+    windowsAarch64JvmUrl = "https://aka.ms/download-jdk/microsoft-jdk-25.0.5.1-windows-aarch64.zip"
+}
+
 tasks.processResources {
     from("dependencies.json") { into("META-INF") }
 }
@@ -166,7 +179,7 @@ dependencies {
 }
 
 dependencies {
-    testImplementation(platform("org.junit:junit-bom:5.13.4"))
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     // The Rider test framework also references JUnit 4 rules

@@ -2,16 +2,17 @@
 # The pipeline filesystem is limited to 5 GB, so nothing big is downloaded or cached per run:
 # the Rider SDK alone is ~4 GB to download and ~10 GB extracted.
 #
-# Build and push from the repository root (after docker login container.eu.registry.sh -u buddy).
-# Push a plain Docker v2 manifest: Buddy showed no versions for an OCI index with attestations.
+# Build and push from the repository root (after docker login). The repository on Docker Hub must stay private:
+# the image contains Rider, which the JetBrains User Agreement does not allow to be provided to third parties.
+# The Build pipeline pulls it through the workspace integration docker-hub.
 #   docker buildx build -f ci/Dockerfile --provenance=false --sbom=false \
 #     --output type=registry,oci-mediatypes=false \
-#     -t container.eu.registry.sh/lakasabasz/build-image:2026.2.2 \
-#     -t container.eu.registry.sh/lakasabasz/build-image:latest .
+#     -t lakasabasz/ridersdk:2026.3.0.2 \
+#     -t lakasabasz/ridersdk:latest .
 # Rebuild when ProductVersion (Rider SDK) changes.
 FROM mcr.microsoft.com/dotnet/sdk:10.0
 
-ARG RIDER_VERSION=2026.2.2
+ARG RIDER_VERSION=2026.3.0.2
 
 ENV RIDER_SDK_PATH=/opt/rider \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 \
@@ -43,7 +44,7 @@ ENV HOME=/opt/ci-home \
     NUGET_PACKAGES=/opt/ci-home/.nuget/packages
 
 # Warm-up: a full build (and the integration tests, allowed to fail here) downloads everything else into the image:
-# JDK 21 for gradlew, JDK 25 toolchain, Gradle, JetBrains Runtime, Maven and NuGet dependencies.
+# JDK 25 for gradlew (also the toolchain, foojay finds it and downloads nothing), Gradle, JetBrains Runtime, Maven and NuGet dependencies.
 COPY . /tmp/warmup
 RUN cd /tmp/warmup \
  && ./gradlew buildPlugin --no-daemon --console=plain \

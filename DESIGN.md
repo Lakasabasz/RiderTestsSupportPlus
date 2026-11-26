@@ -87,9 +87,9 @@ Własny plik (JSON lub XML). Dla każdego testu:
 
 | Składnik | Wersja | Uwagi |
 |---|---|---|
-| Rider (cel) | 2026.2.2 | `ProductVersion` w `gradle.properties` |
-| ReSharper SDK | 2026.2.2 | `SdkVersion` w `src/dotnet/Plugin.props` — **trzymać w parze z `ProductVersion`** |
-| rd-gen | 2026.2.5 | `gradle/libs.versions.toml` |
+| Rider (cel) | 2026.3.0.2 | `ProductVersion` w `gradle.properties` |
+| ReSharper SDK | 2026.3.0.2 | `SdkVersion` w `src/dotnet/Plugin.props` — **trzymać w parze z `ProductVersion`** |
+| rd-gen | 2026.3.2 | `gradle/libs.versions.toml` |
 | Kotlin | 2.3.21 | 2.1.x nie obsługuje JVM 25 |
 | Gradle | 9.7.1 | wrapper |
 | IntelliJ Platform Gradle Plugin | 2.19.0 | |

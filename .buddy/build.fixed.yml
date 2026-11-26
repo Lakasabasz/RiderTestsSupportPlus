@@ -29,11 +29,11 @@
     - /root/.local/share/gradle-jvm
     - /root/.nuget/packages
     shell: BASH
-    docker_image_name: lakasabasz/build-image
+    docker_image_name: lakasabasz/ridersdk
     docker_image_tag: latest
     image_location: PUBLIC_REGISTRY
-    docker_registry: OTHER
-    registry: container.eu.registry.sh
+    docker_registry: DOCKER_HUB
+    integration: docker-hub
   - action: Publish artifact version
     type: PUBLISH_ARTIFACT_VERSION
     local_path: /output

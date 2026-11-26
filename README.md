@@ -73,7 +73,7 @@ or the corrected test ids (`ParamFixture(A)` → `ParamFixture("A")`).
 
 ## Requirements
 
-- Rider 2026.2 (build 262)
+- Rider 2026.3 (build 263)
 - NUnit 3/4 test projects
 - For `NUnit/Where`: .NET (Core) test projects referencing NUnit3TestAdapter
 - For the MCP tools: Rider's MCP Server plugin (bundled, optional)
