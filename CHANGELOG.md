@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## 0.7.0
+### Improvements
+- Requires Rider 2026.3 or newer, Rider 2026.2 and earlier stay on 0.6.0
+
 ## 0.6.0
 ### New Features
 - Tools for AI agents in Rider's MCP Server: create, update, delete and save Unit Tests sessions and see how Rider discovers the tests (test_session_*, test_discovery_info)
